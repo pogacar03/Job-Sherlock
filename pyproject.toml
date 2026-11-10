@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "workplace-reverse-check"
+version = "0.2.0"
+description = "Job-Sherlock: evidence-led workplace and department due diligence"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+reverse-check = "reverse_check.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["reverse_check*"]
+
+[tool.setuptools.package-data]
+reverse_check = ["data/*.json"]

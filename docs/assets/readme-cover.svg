@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="550" viewBox="0 0 1440 550" fill="none">
+  <title>求职侦探 Job-Sherlock · 公司与部门反向背调</title>
+  <desc>深绿色封面。入职之前，先把团队的日常问清楚。右侧是原文、适用范围、待核问题三张相连的证据卡片。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1440" y2="550" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12372F"/><stop offset="1" stop-color="#1C5142"/>
+    </linearGradient>
+    <linearGradient id="light" x1="1160" y1="40" x2="1060" y2="540" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D8F19D" stop-opacity=".2"/><stop offset="1" stop-color="#D8F19D" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" stroke="#E3F1C1" stroke-opacity=".045"/>
+    </pattern>
+  </defs>
+  <rect width="1440" height="550" rx="24" fill="url(#bg)"/>
+  <rect width="1440" height="550" rx="24" fill="url(#grid)"/>
+  <circle cx="1120" cy="240" r="255" fill="url(#light)"/>
+  <circle cx="1120" cy="240" r="215" stroke="#D7EDAA" stroke-opacity=".12"/>
+  <circle cx="1120" cy="240" r="155" stroke="#D7EDAA" stroke-opacity=".1"/>
+  <g font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif">
+    <rect x="66" y="53" width="39" height="39" rx="11" fill="#D5F093"/>
+    <circle cx="83" cy="70" r="8" stroke="#194B3C" stroke-width="2.4"/>
+    <path d="M89 76L96 83" stroke="#194B3C" stroke-width="2.4" stroke-linecap="round"/>
+    <text x="120" y="80" fill="#F3F7E9" font-size="23" font-weight="700" letter-spacing="3">求职侦探</text>
+    <text x="248" y="78" fill="#B9CFC1" font-size="13" letter-spacing="2">WORKPLACE RESEARCH</text>
+    <text x="68" y="166" fill="#D5F093" font-size="13" letter-spacing="4" font-weight="650">EVIDENCE BEFORE OFFER</text>
+    <text x="64" y="240" fill="#F5F7EE" font-size="56" font-weight="750">入职之前，</text>
+    <text x="64" y="315" fill="#F5F7EE" font-size="56" font-weight="750">先把团队的日常问清楚。</text>
+    <text x="68" y="371" fill="#C4D7CA" font-size="22">原文、观察与追问，一起留在报告里。</text>
+    <rect x="68" y="433" width="100" height="33" rx="16.5" fill="#D5F093"/>
+    <text x="91" y="455" fill="#1C4637" font-size="13" font-weight="700">六个维度</text>
+    <rect x="180" y="433" width="100" height="33" rx="16.5" stroke="#86A88E" stroke-opacity=".65"/>
+    <text x="203" y="455" fill="#D9E7D6" font-size="13">原文可追</text>
+    <rect x="292" y="433" width="100" height="33" rx="16.5" stroke="#86A88E" stroke-opacity=".65"/>
+    <text x="315" y="455" fill="#D9E7D6" font-size="13">本地报告</text>
+    <path d="M1085 199V236H1163V264" stroke="#D5F093" stroke-opacity=".65" stroke-width="2" stroke-dasharray="5 6"/>
+    <path d="M1163 350V389H1070" stroke="#D5F093" stroke-opacity=".65" stroke-width="2" stroke-dasharray="5 6"/>
+    <g transform="translate(950 87) rotate(-4 154 61)">
+      <rect width="308" height="122" rx="15" fill="#F2F5E8"/>
+      <rect x="20" y="19" width="40" height="23" rx="6" fill="#D9E9B5"/>
+      <text x="29" y="35" fill="#34593D" font-size="11" font-weight="700">E01</text>
+      <text x="74" y="36" fill="#254C3C" font-size="14" font-weight="700">从原文开始</text>
+      <rect x="21" y="58" width="4" height="40" rx="2" fill="#9CB967"/>
+      <text x="38" y="74" fill="#4C6254" font-size="13">保留逐字摘录</text>
+      <text x="38" y="96" fill="#738373" font-size="11">来源 · 观察日期 · 获取方式</text>
+    </g>
+    <g transform="translate(1040 250) rotate(4 154 61)">
+      <rect width="308" height="122" rx="15" fill="#E6EDDB"/>
+      <circle cx="33" cy="31" r="12" fill="#C8DDB0"/>
+      <path d="M27 31L31 35L38 27" stroke="#416847" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="57" y="36" fill="#254C3C" font-size="14" font-weight="700">核对适用范围</text>
+      <text x="22" y="73" fill="#52674F" font-size="15">公司 / 部门 / 城市 / 岗位</text>
+      <text x="22" y="100" fill="#738373" font-size="11">让观察回到它实际发生的团队</text>
+    </g>
+    <g transform="translate(908 397) rotate(-3 154 46)">
+      <rect width="308" height="92" rx="15" fill="#D5F093"/>
+      <text x="22" y="34" fill="#2D5034" font-size="14" font-weight="700">还有什么，值得继续问？</text>
+      <text x="22" y="64" fill="#4A6841" font-size="13">把分歧和未知，变成面试追问。</text>
+    </g>
+  </g>
+</svg>
