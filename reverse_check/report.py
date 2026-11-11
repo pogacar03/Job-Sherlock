@@ -52,7 +52,9 @@ def markdown_report(data):
         lines.extend(['## 论坛扫描范围','', '渠道失败、未配置和未命中不能解释为没有负面体验；全部原文仍需审阅。',''])
         for scan in data['scans']:
             for channel in scan['channels']:
-                lines.append(f'- {_md(channel["id"])}：{_md(channel["status"])}；{channel["matched"]} 条待审阅原文；{_md(channel["scope"])}')
+                lines.append(f'- {_md(channel["id"])}：{_md(channel["status"])}；{channel["matched"]} 条待审阅原文，{channel.get("leads",0)} 条待追查线索；{_md(channel["scope"])}')
+            for lead in scan.get('leads',[]):
+                lines.append(f'  - 待追查（未作为体验证据）：{_md(lead["title"])}；'+_source_md({'source_ref':lead['url']}))
         lines.append('')
     collection=data.get('collection',{})
     if collection.get('runs'):
@@ -96,7 +98,8 @@ def html_report(data):
     collection_html=''
     scan_html=''
     if data.get('scans'):
-        items=''.join(f'<li>{_e(c["id"])} · {_e(c["status"])} · {c["matched"]} 条待审阅原文<br>{_e(c["scope"])}</li>' for scan in data['scans'] for c in scan['channels'])
+        items=''.join(f'<li>{_e(c["id"])} · {_e(c["status"])} · {c["matched"]} 条待审阅原文，{c.get("leads",0)} 条待追查线索<br>{_e(c["scope"])}</li>' for scan in data['scans'] for c in scan['channels'])
+        items+=''.join(f'<li>待追查（未作为体验证据）：{_e(lead["title"])} · {_source_html({"source_ref":lead["url"]})}</li>' for scan in data['scans'] for lead in scan.get('leads',[]))
         scan_html=f'<section class="entry"><h2>论坛扫描范围</h2><p>失败、未配置或未命中不代表没有负面体验；原文仍需审阅。</p><ul>{items}</ul></section>'
     if collection.get('runs'):
         items=''.join(f'<li><strong>{_e(STATUS_LABELS[row["status"]])}</strong> · {_e(row["requested_url"])}<br><span class="meta">{_e(row["reason"])} · 获取 {_e(row["retrieved_at"])}</span></li>' for row in collection['results'])

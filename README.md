@@ -56,7 +56,7 @@ python3 -m reverse_check scan cases/target --limit 5 --timeout 20
 python3 -m reverse_check report cases/target
 ```
 
-案例先用 `init` 创建。`scan` 接入 V2EX 最近主题/指定主题与回复，并提供牛客、知乎、小红书的 OpenCLI 搜索及详情读取；OpenCLI 需要配置浏览器连接与平台会话。脉脉职言、OfferShow 的工作体验讨论目前仍需人工提供原文。扫描报告聚焦工作氛围与强度，不查询薪资；读取结果需要审阅后才能进入证据账本。参见 [论坛接入、限制和配置](docs/forum-scan.md)。
+案例先用 `init` 创建。`scan` 默认聚焦小红书、牛客、脉脉：读取牛客正文及可见评论、小红书笔记与有限评论，并通过浏览器职言搜索读取脉脉公开正文。需要配置 OpenCLI 浏览器连接与平台会话；脉脉评论暂未接通，导航或访问失败会单独记录。没有体验描述的部门求助帖保留为待追查线索。扫描报告聚焦工作氛围与强度，不查询薪资；读取结果需要审阅后才能进入证据账本。参见 [论坛接入、限制和配置](docs/forum-scan.md)。
 
 ## 30 秒，跑出第一份报告
 

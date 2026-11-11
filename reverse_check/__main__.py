@@ -11,7 +11,7 @@ from .casebook import create_case, import_evidence, read_case
 from .report import write_report
 from .collection import collect_sources
 from .sources import load_sources
-from .forums import channel_status, scan_forums
+from .forums import channel_status, scan_forums, DEFAULT_CHANNELS
 
 
 def main(argv=None):
@@ -33,10 +33,11 @@ def main(argv=None):
     plan.add_argument('--source',action='append',help='限制来源id，可重复')
     sources = subs.add_parser('sources',help='显示本地来源注册表')
     sources.add_argument('--file',type=Path)
-    subs.add_parser('channels',help='查看论坛接入方式与本机工具状态（不验证登录）')
+    channels = subs.add_parser('channels',help='查看三个核心论坛接入方式与本机工具状态（不验证登录）')
+    channels.add_argument('--all',action='store_true',help='同时显示非核心渠道')
     scan = subs.add_parser('scan',help='查找工作氛围/强度讨论，读取原文并保存待审阅草稿')
     scan.add_argument('case_dir',type=Path)
-    scan.add_argument('--source',action='append',help='渠道id，可重复；默认检查全部渠道')
+    scan.add_argument('--source',action='append',help='渠道id，可重复；默认小红书、牛客、脉脉')
     scan.add_argument('--query',action='append',help='站内搜索词，可重复；仅用于OpenCLI渠道')
     scan.add_argument('--topic-id',action='append',help='V2EX主题ID；不提供时检查最近主题')
     scan.add_argument('--limit',type=int,default=5,help='每渠道最多保存的相关原文数，1–20')
@@ -71,17 +72,18 @@ def main(argv=None):
             target = args.case_dir / 'queries.md'
             if target.exists() and not args.force:
                 raise ValueError('检索计划已存在；使用 --force 可重新生成')
-            target.write_text(build_plan(case,load_sources(args.sources),args.source),encoding='utf-8')
+            selected=args.source or (list(DEFAULT_CHANNELS) if args.sources is None else None)
+            target.write_text(build_plan(case,load_sources(args.sources),selected),encoding='utf-8')
             print(f'已生成待执行检索计划：{target.resolve()}')
         elif args.command == 'sources':
             print(json.dumps(load_sources(args.file),ensure_ascii=False,indent=2))
         elif args.command == 'channels':
-            print(json.dumps(channel_status(),ensure_ascii=False,indent=2))
+            print(json.dumps(channel_status(all_channels=args.all),ensure_ascii=False,indent=2))
         elif args.command == 'scan':
             run=scan_forums(args.case_dir,args.source,args.query,args.limit,args.timeout,args.topic_id)
             data=json.loads((run/'run.json').read_text())
             for row in data['channels']:
-                print(f'{row["id"]}: {row["status"]}，{row["matched"]} 条待审阅原文；{row["scope"]}')
+                print(f'{row["id"]}: {row["status"]}，{row["matched"]} 条待审阅原文，{row.get("leads",0)} 条待追查线索；{row["scope"]}')
             print((run/'run.json').resolve())
             if data['collection']:
                 print((args.case_dir/data['collection']/'evidence-drafts.json').resolve())
