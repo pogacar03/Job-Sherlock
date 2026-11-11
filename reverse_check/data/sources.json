@@ -1,11 +1,77 @@
 {
   "schema_version": 1,
   "sources": [
-    {"id":"nowcoder","name":"牛客公开页面","domains":["nowcoder.com"],"mode":"public","query":"site:nowcoder.com {company} {department} {city} {role} 工作体验 加班"},
-    {"id":"zhihu","name":"知乎公开页面","domains":["zhihu.com"],"mode":"public","query":"site:zhihu.com {company} {department} {city} 工作体验"},
-    {"id":"maimai","name":"脉脉（由宿主或用户读取）","domains":["maimai.cn"],"mode":"manual","query":"site:maimai.cn {company} {department} {city} 加班 氛围"},
-    {"id":"xiaohongshu","name":"小红书（由宿主或用户读取）","domains":["xiaohongshu.com","xhslink.com"],"mode":"manual","query":"site:xiaohongshu.com {company} {department} {city} 工作体验"},
-    {"id":"kanzhun","name":"看准（由宿主或用户读取）","domains":["kanzhun.com"],"mode":"manual","query":"site:kanzhun.com {company} {department} 员工评价"},
-    {"id":"public-web","name":"其他公开原文","domains":[],"mode":"public","query":null}
+    {
+      "id": "nowcoder",
+      "name": "牛客公开页面",
+      "domains": [
+        "nowcoder.com"
+      ],
+      "mode": "public",
+      "query": "site:nowcoder.com {company} {department} {city} {role} 工作体验 加班"
+    },
+    {
+      "id": "zhihu",
+      "name": "知乎公开页面",
+      "domains": [
+        "zhihu.com"
+      ],
+      "mode": "public",
+      "query": "site:zhihu.com {company} {department} {city} 工作体验"
+    },
+    {
+      "id": "maimai",
+      "name": "脉脉（由宿主或用户读取）",
+      "domains": [
+        "maimai.cn"
+      ],
+      "mode": "manual",
+      "query": "site:maimai.cn {company} {department} {city} 加班 氛围"
+    },
+    {
+      "id": "xiaohongshu",
+      "name": "小红书（由宿主或用户读取）",
+      "domains": [
+        "xiaohongshu.com",
+        "xhslink.com"
+      ],
+      "mode": "manual",
+      "query": "site:xiaohongshu.com {company} {department} {city} 工作体验"
+    },
+    {
+      "id": "kanzhun",
+      "name": "看准（由宿主或用户读取）",
+      "domains": [
+        "kanzhun.com"
+      ],
+      "mode": "manual",
+      "query": "site:kanzhun.com {company} {department} 员工评价"
+    },
+    {
+      "id": "v2ex",
+      "name": "V2EX公开讨论",
+      "domains": [
+        "v2ex.com"
+      ],
+      "mode": "public",
+      "query": "site:v2ex.com {company} {department} 加班 工作氛围"
+    },
+    {
+      "id": "offershow",
+      "name": "OfferShow工作体验讨论（用户读取）",
+      "domains": [
+        "offershow.cn",
+        "ioffershow.com"
+      ],
+      "mode": "manual",
+      "query": "site:offershow.cn {company} {department} 工作氛围 工作强度"
+    },
+    {
+      "id": "public-web",
+      "name": "其他公开原文",
+      "domains": [],
+      "mode": "public",
+      "query": null
+    }
   ]
 }

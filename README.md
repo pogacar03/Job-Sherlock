@@ -48,6 +48,16 @@
 
 <a id="quick-start"></a>
 
+## 从论坛查工作氛围与强度
+
+```bash
+python3 -m reverse_check channels
+python3 -m reverse_check scan cases/target --limit 5 --timeout 20
+python3 -m reverse_check report cases/target
+```
+
+案例先用 `init` 创建。`scan` 接入 V2EX 最近主题/指定主题与回复，并提供牛客、知乎、小红书的 OpenCLI 搜索及详情读取；OpenCLI 需要配置浏览器连接与平台会话。脉脉职言、OfferShow 的工作体验讨论目前仍需人工提供原文。扫描报告聚焦工作氛围与强度，不查询薪资；读取结果需要审阅后才能进入证据账本。参见 [论坛接入、限制和配置](docs/forum-scan.md)。
+
 ## 30 秒，跑出第一份报告
 
 准备 **Python 3.11+**，在项目根目录运行，无需安装第三方运行包：

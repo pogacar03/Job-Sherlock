@@ -9,6 +9,7 @@ from urllib.parse import quote
 from .analysis import analyze
 from .casebook import _write_json, read_case, read_evidence
 from .collection import STATUS_LABELS, collection_summary
+from .forums import scan_summary
 
 
 STATUS = {'unknown':'待核实', 'observed':'有可追溯观察', 'conflicting':'存在分歧'}
@@ -47,6 +48,12 @@ def markdown_report(data):
                   '范围：' + ' / '.join(_md(case[k] or '未明确') for k in ('business_unit','department','city','role')), '',
                   f'共保存 {data["summary"]["total_count"]} 条材料；{data["summary"]["eligible_count"]} 条符合分析条件。来源簇数表示材料覆盖，不代表统计置信度。', ''])
     all_rows = {r['id']:r for r in [*data['evidence'],*data['background']]}
+    if data.get('scans'):
+        lines.extend(['## 论坛扫描范围','', '渠道失败、未配置和未命中不能解释为没有负面体验；全部原文仍需审阅。',''])
+        for scan in data['scans']:
+            for channel in scan['channels']:
+                lines.append(f'- {_md(channel["id"])}：{_md(channel["status"])}；{channel["matched"]} 条待审阅原文；{_md(channel["scope"])}')
+        lines.append('')
     collection=data.get('collection',{})
     if collection.get('runs'):
         lines.extend(['## 来源采集记录','',f'{collection["runs"]} 次采集，累计 {collection["total_urls"]} 条URL任务，{collection["fetch_attempts"]} 次自动读取尝试。',
@@ -87,6 +94,10 @@ def html_report(data):
     case,summary = data['target'],data['summary']
     collection=data.get('collection',{})
     collection_html=''
+    scan_html=''
+    if data.get('scans'):
+        items=''.join(f'<li>{_e(c["id"])} · {_e(c["status"])} · {c["matched"]} 条待审阅原文<br>{_e(c["scope"])}</li>' for scan in data['scans'] for c in scan['channels'])
+        scan_html=f'<section class="entry"><h2>论坛扫描范围</h2><p>失败、未配置或未命中不代表没有负面体验；原文仍需审阅。</p><ul>{items}</ul></section>'
     if collection.get('runs'):
         items=''.join(f'<li><strong>{_e(STATUS_LABELS[row["status"]])}</strong> · {_e(row["requested_url"])}<br><span class="meta">{_e(row["reason"])} · 获取 {_e(row["retrieved_at"])}</span></li>' for row in collection['results'])
         collection_html=f'<section class="entry" style="margin:0 0 24px"><h2>来源采集记录</h2><p>{collection["runs"]} 次采集 · {collection["total_urls"]} 条URL任务 · {collection["fetch_attempts"]} 次自动读取尝试</p><p class="meta">采集原文需要审阅后才进入证据账本；登录、验证码、限流与网络失败分别记录。同一URL跨批次按次保留。</p><details><summary>展开每条采集状态</summary><ul>{items}</ul></details></section>'
@@ -122,7 +133,7 @@ def html_report(data):
 <header><span class="brand">求职侦探</span><span>以原文为起点 · 为下一次面试做准备</span></header>{demo}
 <main class="shell"><section class="hero"><div><div class="eyebrow">WORKPLACE EVIDENCE BRIEF</div><h1>{_e(case['company'])}</h1><div class="scope">{_e(scope)}</div></div><div class="stamp"><small>调查基准日</small><b>{case['as_of']}</b><small>观察窗口 {case['lookback_days']} 天</small></div></section>
 <div class="layout"><aside class="sidebar"><div class="brief"><p>{overview}</p><div class="metric"><strong>{summary['eligible_count']}<span style="font-size:14px"> / {summary['total_count']}</span></strong><small>符合条件 / 已保存材料</small></div><div class="metric"><strong>{summary['source_clusters']}</strong><small>符合条件材料的来源簇</small></div><div class="metric"><strong>{summary['unknown_dimensions']}</strong><small>仍待核实的维度</small></div></div><nav aria-label="报告导航">{''.join(navigation)}<a href="#sources">原文与出处</a><a href="#background">背景与线索</a></nav></aside>
-<div>{collection_html}<section><div class="section-title"><h2>部门体验 · 六个维度</h2><small>材料覆盖不是置信概率</small></div><div class="grid">{''.join(cards)}</div></section>
+<div>{scan_html}{collection_html}<section><div class="section-title"><h2>{'工作氛围与强度' if len(data['dimensions'])==2 else '部门体验 · 六个维度'}</h2><small>材料覆盖不是置信概率</small></div><div class="grid">{''.join(cards)}</div></section>
 <section class="block" id="sources"><h2>原文与出处</h2><p class="muted">摘录、观察与出处一起保留，便于逐条复查。</p>{''.join(entries) or '<div class="empty">尚无满足范围、时间与原文要求的直接材料。</div>'}</section>
 <section class="block" id="background"><h2>背景与待核线索</h2><p class="muted">以下材料没有用于判断目标部门的现状。</p>{''.join(backgrounds) or '<div class="empty">尚无背景材料。</div>'}</section>
 <section class="block method"><h2>如何理解这份报告</h2><ul>{methodology}</ul></section>
@@ -132,8 +143,15 @@ def html_report(data):
 def write_report(case_dir, out, force=False):
     case = read_case(case_dir)
     rows = read_evidence(case_dir)
+    scans=scan_summary(case_dir)
+    if scans:
+        rows=[r for r in rows if r['dimension'] in {'workload','atmosphere'}]
     data = analyze(case, rows)
     data['collection']=collection_summary(case_dir)
+    data['scans']=scans
+    if data['scans']:
+        data['dimensions']={key:value for key,value in data['dimensions'].items() if key in {'workload','atmosphere'}}
+        data['summary']['unknown_dimensions']=sum(v['status']=='unknown' for v in data['dimensions'].values())
     out = Path(out)
     files = [out / ('report.'+ext) for ext in ('html','md','json')]
     if not force and any(p.exists() for p in files):
