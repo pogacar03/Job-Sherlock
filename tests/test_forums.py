@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import sys
 import unittest
 
 from reverse_check.casebook import create_case, read_evidence
@@ -12,6 +13,16 @@ from tests.fixtures import target
 
 
 class ForumTests(unittest.TestCase):
+    def test_opencli_structured_stdout_auth_error_is_not_generic_failure(self):
+        script='import json; print(json.dumps({"ok":False,"error":{"code":"AUTH_REQUIRED","message":"Login needed"}})); raise SystemExit(77)'
+        with self.assertRaises(FetchError) as error:
+            self.api()._tool([sys.executable,'-c',script],3)
+        self.assertEqual(error.exception.status,'login_required')
+
+    def test_opencli_empty_result_error_means_successful_empty_query(self):
+        script='import json; print(json.dumps({"ok":False,"error":{"code":"EMPTY_RESULT"}})); raise SystemExit(1)'
+        self.assertEqual(self.api()._tool([sys.executable,'-c',script],3),[])
+
     def api(self):
         self.assertIsNotNone(importlib.util.find_spec('reverse_check.forums'), '缺少论坛实际采集模块')
         from reverse_check import forums

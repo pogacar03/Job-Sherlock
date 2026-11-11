@@ -58,6 +58,16 @@ def _tool(args, timeout):
         except OSError as exc:raise FetchError('not_configured','无法启动OpenCLI') from exc
         if out.tell()>2000000:raise FetchError('too_large','平台输出超过2MB')
         if r.returncode:
+            out.seek(0)
+            try:
+                failure=json.load(out)
+                code=failure.get('error',{}).get('code') if isinstance(failure,dict) else None
+            except (ValueError,UnicodeError,AttributeError):code=None
+            if code=='EMPTY_RESULT':return []
+            states={'AUTH_REQUIRED':'login_required','RATE_LIMITED':'rate_limited','TIMEOUT':'timeout','SECURITY_BLOCK':'blocked','BROWSER_NOT_CONNECTED':'not_configured'}
+            if code in states:raise FetchError(states[code],'OpenCLI状态：'+code+'；请检查平台登录或访问限制')
+            if isinstance(code,str) and re.fullmatch(r'[A-Z_]{2,60}',code):
+                raise FetchError('tool_error','OpenCLI错误代码：'+code)
             err.seek(0);msg=err.read(4000).decode('utf-8',errors='replace').casefold()
             status='login_required' if any(s in msg for s in ('login','auth','登录')) else 'blocked' if any(s in msg for s in ('captcha','risk','验证码','安全限制')) else 'tool_error'
             raise FetchError(status,'OpenCLI读取失败；请在终端运行opencli doctor检查连接和登录')
@@ -154,7 +164,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                                 text='\n'.join(_plain(str(v.get('content') or v.get('desc') or v.get('text') or '')) for v in details)
                             title=str(candidate.get('title') or '')
                             if text and relevant(title+'\n'+text):documents.append({'channel':channel,'url':url,'title':title,'text':title+'\n'+text,'published_at':None,'scope_note':'平台原文，待核对部门及体验时间；搜索摘要不作为正文'})
-                        except FetchError as exc:row['errors'].append({'stage':'detail','status':exc.status})
+                        except FetchError as exc:row['errors'].append({'stage':'detail','status':exc.status,'reason':str(exc)})
                         if len(documents)-start>=limit:break
                     if len(documents)-start>=limit:break
             row['matched']=len(documents)-start
@@ -163,7 +173,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
         except FetchError as exc:
             row['matched']=len(documents)-start
             row['status']='partial' if row['matched'] else exc.status
-            row['errors'].append({'stage':'discovery','status':exc.status})
+            row['errors'].append({'stage':'discovery','status':exc.status,'reason':str(exc)})
         results.append(row)
     collection=None
     if documents:
