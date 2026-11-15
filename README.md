@@ -242,6 +242,7 @@ python3 -m unittest discover -v
 | [证据格式](docs/evidence-format.md) | 字段、来源合并、时间与范围判定 |
 | [公开来源采集](docs/collection.md) | 来源配置、并发读取、状态与草稿审阅 |
 | [首版设计](docs/superpowers/specs/2026-11-10-reverse-check-design.md) | 目标、架构与当前范围 |
+| [后续开发计划与模型交接](docs/superpowers/plans/2026-11-15-development-roadmap.md) | v0.3 三阶段任务、接口、测试与验收；尚未实施 |
 | [Sherlock README 观察](docs/research/2026-11-10-sherlock-readme.md) | 用户确认的参考项目与本次呈现方式 |
 
 ## 灵感与致谢
