@@ -11,6 +11,7 @@ dependencies = []
 
 [project.scripts]
 reverse-check = "reverse_check.__main__:main"
+job-sherlock = "reverse_check.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["reverse_check*"]

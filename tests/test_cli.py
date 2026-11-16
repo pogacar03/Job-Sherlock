@@ -42,6 +42,14 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertNotIn('Traceback', result.stderr)
 
+    def test_review_rejects_noninteractive_input(self):
+        self.init()
+        proposal=self.path/'proposal.json';proposal.write_text('{"schema_version":1,"proposals":[]}')
+        result=self.run_cli('review',self.case,'--file',proposal)
+        self.assertEqual(result.returncode,2)
+        self.assertIn('交互式终端',result.stderr)
+        self.assertEqual(json.loads((self.case/'evidence.json').read_text()),[])
+
     def test_legacy_evidence_survives_report_with_or_without_scan(self):
         self.init()
         source = self.path / 'legacy.json'

@@ -15,6 +15,7 @@ from .forums import channel_status, scan_forums, DEFAULT_CHANNELS
 from .pilot import write_pilot_report
 from .review import review_interactive
 from .review_render import write_review_cards
+from .workflow import run_investigation
 
 
 def main(argv=None):
@@ -29,6 +30,19 @@ def main(argv=None):
     init.add_argument('--as-of')
     init.add_argument('--lookback-days',type=int,default=365)
     init.add_argument('--demo',action='store_true',help='标记虚构演练案例；所有报告显示演示提示')
+    run = subs.add_parser('run', help='创建案例、扫描并生成待审阅卡片与报告')
+    run.add_argument('case_dir',type=Path)
+    run.add_argument('--company',required=True)
+    run.add_argument('--department',required=True)
+    for field in ('business-unit','city','role'): run.add_argument('--'+field)
+    run.add_argument('--company-alias',action='append',default=[])
+    run.add_argument('--as-of')
+    run.add_argument('--lookback-days',type=int,default=365)
+    run.add_argument('--search-term',action='append')
+    run.add_argument('--source',action='append')
+    run.add_argument('--limit',type=int,default=5)
+    run.add_argument('--timeout',type=float,default=20)
+    run.add_argument('--total-timeout',type=float,default=180)
     plan = subs.add_parser('plan', help='生成检索计划和面试核实问题')
     plan.add_argument('case_dir',type=Path)
     plan.add_argument('--force',action='store_true')
@@ -81,7 +95,25 @@ def main(argv=None):
     review.add_argument('--file', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        if args.command == 'candidates':
+        if args.command == 'run':
+            fields={k:getattr(args,k) for k in ('company','department','business_unit','city','role','lookback_days')}
+            fields['company_aliases']=args.company_alias
+            if args.as_of: fields['as_of']=args.as_of
+            options={'channels':args.source,'search_terms':args.search_term,'limit':args.limit,'timeout':args.timeout,'total_timeout':args.total_timeout}
+            print('工具状态仅检查是否安装，连接与登录以实际读取为准。')
+            for item in channel_status(): print(f'{item["id"]}: {item["status"]}')
+            result=run_investigation(args.case_dir,case_fields=fields,scan_options=options)
+            print('案例：',result['case_dir'].resolve())
+            if result['scan_dir']:
+                data=json.loads((result['scan_dir']/'run.json').read_text(encoding='utf-8'))
+                for item in data['channels']:
+                    print(f'{item["id"]}: {item["status"]}；已读取候选 {item.get("candidates",0)}')
+                print('已审阅证据：0；建议先查看候选卡片，生成建议后使用 review 审阅。')
+            if result['cards_path']: print('候选卡片：',result['cards_path'].resolve())
+            for p in result['report_paths']: print('报告：',p.resolve())
+            if result['exit_code']==3: print('部分来源未完成，请检查 opencli doctor、登录或扫描状态。')
+            return result['exit_code']
+        elif args.command == 'candidates':
             print(write_review_cards(args.case_dir,args.out,force=args.force).resolve())
         elif args.command == 'review':
             if not sys.stdin.isatty(): raise ValueError('审阅需要交互式终端，未自动接收任何建议')
