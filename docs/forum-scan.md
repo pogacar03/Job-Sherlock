@@ -34,6 +34,8 @@ python3 -m reverse_check scan cases/target --source nowcoder --source xiaohongsh
 python3 -m reverse_check scan cases/target --source v2ex --topic-id 123456
 ```
 
+已有原帖链接时，可使用 `python3 -m reverse_check read cases/target '原帖完整URL' --source nowcoder`；支持 `nowcoder`、`xiaohongshu`、`maimai`。小红书使用页面实际提供的带签名链接。直读不执行搜索，正文和已读评论分别保存为候选段落，仍需人工审阅，失败不会自动写入证据。
+
 示例主题 ID 需要替换为真实目标。每个核心渠道默认三组搜索词（部门线索、加班、氛围），部门含英文缩写时优先使用该缩写避免过长查询；每组最多读取 limit 条候选详情，最多保存 limit 篇相关原文。timeout 是单次调用预算，不是整轮扫描的总时限。V2EX 最多检查100条列表记录；回复只读第一页、最多100条，不能声称已读完所有评论。
 
 ## OpenCLI 准备

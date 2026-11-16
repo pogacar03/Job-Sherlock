@@ -43,6 +43,11 @@ def main(argv=None):
     scan.add_argument('--topic-id',action='append',help='V2EX主题ID；不提供时检查最近主题')
     scan.add_argument('--limit',type=int,default=5,help='每渠道最多保存的相关原文数，1–20')
     scan.add_argument('--timeout',type=float,default=20,help='单次网络或工具调用超时秒数')
+    read = subs.add_parser('read', help='读取已知论坛原帖并保存待审阅材料')
+    read.add_argument('case_dir',type=Path)
+    read.add_argument('url')
+    read.add_argument('--source',choices=DEFAULT_CHANNELS,required=True)
+    read.add_argument('--timeout',type=float,default=20)
     collector = subs.add_parser('collect',help='并发读取已找到的公开原文URL，保存待审阅草稿')
     collector.add_argument('case_dir',type=Path)
     collector.add_argument('--urls',type=Path,required=True,help='1–100个URL的JSON数组')
@@ -87,8 +92,8 @@ def main(argv=None):
             print(json.dumps(load_sources(args.file),ensure_ascii=False,indent=2))
         elif args.command == 'channels':
             print(json.dumps(channel_status(all_channels=args.all),ensure_ascii=False,indent=2))
-        elif args.command == 'scan':
-            run=scan_forums(args.case_dir,args.source,args.query,args.limit,args.timeout,args.topic_id)
+        elif args.command in {'scan','read'}:
+            run=scan_forums(args.case_dir,args.source,args.query,args.limit,args.timeout,args.topic_id) if args.command == 'scan' else scan_forums(args.case_dir,[args.source],timeout=args.timeout,source_urls={args.source:[args.url]})
             data=json.loads((run/'run.json').read_text())
             for row in data['channels']:
                 print(f'{row["id"]}: {row["status"]}，{row["matched"]} 条待审阅原文，{row.get("leads",0)} 条待追查线索；{row["scope"]}')

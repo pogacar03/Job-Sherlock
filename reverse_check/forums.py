@@ -7,14 +7,15 @@ import re
 import shutil
 import subprocess
 import tempfile
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 import uuid
 
 from .casebook import read_case, _write_json
 from .collection import collect_sources, _VisibleText
 from .http_source import public_fetch, FetchError, FetchedPage, parse_url
 from .sources import load_sources
-from .browser_forums import nowcoder_comments, xhs_search, maimai_search, maimai_post
+from .browser_forums import xhs_search, maimai_search
+from .forum_content import read_forum_thread, thread_key, candidate_id_for
 
 DEFAULT_CHANNELS = ('xiaohongshu','nowcoder','maimai')
 
@@ -89,7 +90,7 @@ def _allowed(channel,url):
     return any(host==d or host.endswith('.'+d) for d in DOMAINS[channel])
 
 
-def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids=None,fetch=None,executable=_AUTO,tool=None):
+def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids=None,fetch=None,executable=_AUTO,tool=None, *, source_urls=None):
     case=read_case(case_dir)
     channels=list(dict.fromkeys(channels or DEFAULT_CHANNELS))
     if any(c not in CHANNELS for c in channels):raise ValueError('未知论坛渠道')
@@ -99,6 +100,19 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
     if len(topic_ids)>20 or any(not re.fullmatch(r'[1-9][0-9]{0,11}',str(v)) for v in topic_ids):raise ValueError('topic-id需要正整数，最多20个')
     if queries is not None and (not isinstance(queries,list) or not 1<=len(queries)<=6 or any(not isinstance(q,str) or not q.strip() or len(q)>300 for q in queries)):
         raise ValueError('query需要1–6条非空短文本')
+    if source_urls is not None:
+        if not isinstance(source_urls, dict) or not source_urls or any(c not in DEFAULT_CHANNELS or c not in channels or not isinstance(urls, list) or not urls for c, urls in source_urls.items()):
+            raise ValueError('source_urls 需要选定的核心渠道及原帖链接')
+        if sum(len(urls) for urls in source_urls.values()) > 20:
+            raise ValueError('最多读取20个链接')
+        try:
+            for channel, urls in source_urls.items():
+                for url in urls:
+                    thread_key(channel, url)
+                    if channel == 'xiaohongshu' and not parse_qs(urlsplit(url).query).get('xsec_token'):
+                        raise FetchError('unsupported_source', '小红书链接缺少页面提供的签名')
+        except (FetchError, TypeError) as exc:
+            raise ValueError('原帖链接不支持') from exc
     executable=shutil.which('opencli') if executable is _AUTO else executable
     fetch=fetch or public_fetch;tool=tool or _tool
     terms=[case['company'],*case['company_aliases']]
@@ -109,7 +123,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
     queries=queries or [seed,seed+' 加班',seed+' 氛围']
     root=Path(case_dir)/'scans'/(datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')+'-'+uuid.uuid4().hex[:8])
     (root/'raw').mkdir(parents=True)
-    documents=[];leads=[];results=[];counter=0
+    documents=[];leads=[];results=[];candidates=[];counter=0
     def save(value):
         nonlocal counter
         counter+=1;_write_json(root/'raw'/f'{counter:04}.json',value)
@@ -157,48 +171,46 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                     if len(documents)-start>=limit:break
             else:
                 seen=set()
-                for query in queries:
+                for query in ([None] if source_urls is not None else queries):
                     args=[executable,channel,'search',query,'--limit',str(limit),'-f','json']
                     if channel=='zhihu':args.extend(['--type','answer'])
-                    try:rows=maimai_search(executable,query,limit,timeout,tool) if channel=='maimai' else tool(args,timeout)
+                    try:rows=([{'url': url} for url in source_urls.get(channel, [])] if source_urls is not None else maimai_search(executable,query,limit,timeout,tool) if channel=='maimai' else tool(args,timeout))
                     except FetchError as exc:
                         if channel!='xiaohongshu' or exc.status!='timeout':raise
                         rows=xhs_search(executable,query,limit,timeout,tool)
                     save(rows)
-                    for candidate in rows[:limit]:
+                    for candidate in (rows if source_urls is not None else rows[:limit]):
                         url=candidate.get('url','')
                         if not isinstance(url,str) or url in seen or not _allowed(channel,url):continue
                         seen.add(url);row['checked']+=1
                         if channel=='zhihu' and not re.search(r'/answer/[0-9]+',url):continue
-                        command={'nowcoder':'detail','zhihu':'answer-detail','xiaohongshu':'note','maimai':'post'}[channel]
                         try:
-                            details=maimai_post(executable,url,timeout,tool) if channel=='maimai' else tool([executable,channel,command,url,'-f','json'],timeout)
-                            save(details)
-                            if channel=='xiaohongshu':
-                                text='\n'.join(_plain(str(v.get('value') or '')) for v in details if v.get('field') in {'title','content','desc'})
+                            if channel in DEFAULT_CHANNELS:
+                                def tracked_tool(args, call_timeout):
+                                    result=tool(args,call_timeout)
+                                    save(result)
+                                    return result
+                                record=read_forum_thread(channel,url,executable=executable,timeout=timeout,tool=tracked_tool)
+                                if not record['title']:
+                                    record['title']=str(candidate.get('title') or '')
+                                    record['text']=record['title']+'\n'+record['text'].lstrip('\n')
+                                published=candidate.get('time') or candidate.get('published_at')
+                                record['published_at']=str(published) if published is not None else None
+                                record['published_at_raw']=record['published_at']
+                                record['segments'][0]['time_raw']=record['published_at_raw']
+                                record['candidate_id']=candidate_id_for(record['thread_key'],record['title'],record['segments'])
+                                row['errors'].extend(record['errors'])
+                                candidates.append(record)
                             else:
-                                text='\n'.join(_plain(str(v.get('content') or v.get('desc') or v.get('text') or '')) for v in details)
-                            title=str(candidate.get('title') or '')
-                            comments=[];comment_status='not_read'
-                            if text:
-                                try:
-                                    if channel=='nowcoder':comments=nowcoder_comments(executable,url,timeout,tool)
-                                    elif channel=='xiaohongshu':comments=tool([executable,channel,'comments',url,'--limit','20','--with-replies','true','-f','json'],timeout)
-                                    comment_status='visible_only' if channel=='nowcoder' else 'bounded' if channel=='xiaohongshu' else 'not_supported'
-                                    save({'stage':'comments','url':url,'coverage':comment_status,'comments':comments})
-                                except FetchError as exc:
-                                    comment_status=exc.status
-                                    row['errors'].append({'stage':'comments','status':exc.status,'reason':str(exc)})
-                            thread=title+'\n'+text
-                            for comment in comments:
-                                body=comment.get('text','')
-                                if isinstance(body,str) and body.strip():thread+='\n评论：'+_plain(body)
-                            record={'channel':channel,'url':url,'title':title,'text':thread,'comments':comments,'comment_status':comment_status,'published_at':candidate.get('time') or candidate.get('published_at'),'scope_note':'正文与有限评论；作者身份、体验时间和部门归属待核实，评论数量不是独立证人数'}
-                            if text and relevant(thread):documents.append(record)
-                            elif text and any(t.casefold() in thread.casefold() for t in terms):leads.append(record)
+                                details=tool([executable,channel,'answer-detail',url,'-f','json'],timeout);save(details)
+                                body='\n'.join(_plain(str(v.get('content') or v.get('desc') or v.get('text') or '')) for v in details)
+                                record={'channel':channel,'url':url,'title':str(candidate.get('title') or ''),'text':str(candidate.get('title') or '')+'\n'+body,'published_at':candidate.get('time'),'scope_note':'原文待核对部门及体验时间'}
+                            thread=record['text']
+                            if relevant(thread):documents.append(record)
+                            elif any(t.casefold() in thread.casefold() for t in terms):leads.append(record)
                         except FetchError as exc:row['errors'].append({'stage':'detail','status':exc.status,'reason':str(exc)})
-                        if len(documents)-start>=limit:break
-                    if len(documents)-start>=limit:break
+                        if source_urls is None and len(documents)-start>=limit:break
+                    if source_urls is None and len(documents)-start>=limit:break
             row['matched']=len(documents)-start
             if row['matched']:row['status']='partial' if row['errors'] else 'ok'
             elif row['errors']:row['status']='partial'
@@ -217,7 +229,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
         registry={'schema_version':1,'sources':[{**s,'mode':'public'} for s in registry['sources']]}
         def cached(url,**kwargs):return FetchedPage(url,200,'text/plain; charset=utf-8',cache[url]['text'].encode())
         collection=collect_sources(case_dir,list(cache),registry=registry,fetch=cached)
-    _write_json(root/'run.json',{'schema_version':1,'focus':['workload','atmosphere'],'channels':results,'documents':documents,'leads':leads,'collection':str(collection.relative_to(case_dir)) if collection else None,'note':'全部材料待审阅；公司命中不代表部门归属；失败或未配置不代表没有问题'})
+    _write_json(root/'run.json',{'schema_version':2,'focus':['workload','atmosphere'],'channels':results,'documents':documents,'leads':leads,'candidates':candidates,'collection':str(collection.relative_to(case_dir)) if collection else None,'note':'全部材料待审阅；公司命中不代表部门归属；失败或未配置不代表没有问题'})
     return root
 
 
