@@ -7,3 +7,5 @@
 kind 为 experience/question/hearsay/official/unknown；只有员工亲历建议可经此流程接收，其他内容作为线索。程序检查快照、引用和格式，不认证匿名身份、原文真假、依据语义或团队归属，需由审阅者判断。
 
 旧版手工 `import` 仍可按[证据格式](evidence-format.md)登记已审阅材料与背景。
+
+使用 `python3 -m reverse_check candidates cases/target --out reports/cards` 生成只读卡片；使用 `python3 -m reverse_check review cases/target --file proposals.json` 在终端逐条接收或跳过。审阅中 `q` 提交此前已选择的项，Ctrl-C 在提交前取消本轮选择。审阅完成后重新运行 `report`。非交互输入不会自动接收。

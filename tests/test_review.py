@@ -52,3 +52,31 @@ class ReviewTests(unittest.TestCase):
             self.assertEqual(approve_proposals(path,batch,['p1'])['inserted'],1)
             self.assertEqual(approve_proposals(path,batch,['p1'])['inserted'],0)
             self.assertEqual(len(read_evidence(path)),1)
+
+    def test_interrupted_receipt_can_be_retried(self):
+        from reverse_check.review import approve_proposals
+        from reverse_check.casebook import _write_json
+        c,p=sample();batch={'schema_version':1,'proposals':[p]}
+        calls=[]
+        def write(path, data):
+            calls.append(data['status'])
+            if data['status']=='committed': raise OSError('disk error')
+            _write_json(path,data)
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'case';setup_case(path,c)
+            with patch('reverse_check.review._write_json',side_effect=write):
+                with self.assertRaisesRegex(ValueError,'证据已登记'):approve_proposals(path,batch,['p1'])
+            self.assertEqual(len(read_evidence(path)),1)
+            result=approve_proposals(path,batch,['p1'])
+            self.assertEqual(result['inserted'],0)
+            self.assertEqual(json.loads(Path(result['receipt']).read_text())['status'],'committed')
+
+    def test_keyboard_interrupt_never_imports_selection(self):
+        from reverse_check.review import review_interactive
+        c,p=sample()
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'case';setup_case(path,c)
+            def interrupted(_): raise KeyboardInterrupt()
+            with self.assertRaises(KeyboardInterrupt):
+                review_interactive(path,{'schema_version':1,'proposals':[p]},input_fn=interrupted,output_fn=lambda _:None)
+            self.assertEqual(read_evidence(path),[])

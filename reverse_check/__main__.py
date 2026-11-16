@@ -13,6 +13,8 @@ from .collection import collect_sources
 from .sources import load_sources
 from .forums import channel_status, scan_forums, DEFAULT_CHANNELS
 from .pilot import write_pilot_report
+from .review import review_interactive
+from .review_render import write_review_cards
 
 
 def main(argv=None):
@@ -70,9 +72,22 @@ def main(argv=None):
     evaluate.add_argument('--file', type=Path, required=True)
     evaluate.add_argument('--out', type=Path, required=True)
     evaluate.add_argument('--force', action='store_true')
+    cards = subs.add_parser('candidates', help='生成待审阅候选卡片')
+    cards.add_argument('case_dir', type=Path)
+    cards.add_argument('--out', type=Path, required=True)
+    cards.add_argument('--force', action='store_true')
+    review = subs.add_parser('review', help='逐条审阅提取建议')
+    review.add_argument('case_dir', type=Path)
+    review.add_argument('--file', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        if args.command == 'evaluate':
+        if args.command == 'candidates':
+            print(write_review_cards(args.case_dir,args.out,force=args.force).resolve())
+        elif args.command == 'review':
+            if not sys.stdin.isatty(): raise ValueError('审阅需要交互式终端，未自动接收任何建议')
+            result=review_interactive(args.case_dir,json.loads(args.file.read_text(encoding='utf-8')))
+            print(f'新增 {result["inserted"]} 条证据。')
+        elif args.command == 'evaluate':
             for path in write_pilot_report(json.loads(args.file.read_text(encoding='utf-8')), args.out, force=args.force):
                 print(path.resolve())
         elif args.command == 'init':
@@ -125,6 +140,9 @@ def main(argv=None):
             (args.out/'case'/'queries.md').write_text(build_plan(read_case(args.out/'case')),encoding='utf-8')
             for path in write_report(args.out/'case',args.out):
                 print(path.resolve())
+    except KeyboardInterrupt:
+        print('已中断；本轮未提交的审阅选择已取消。',file=sys.stderr)
+        return 130
     except (ValueError,OSError,UnicodeError) as exc:
         print(f'错误：{exc}',file=sys.stderr)
         return 2

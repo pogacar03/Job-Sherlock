@@ -94,3 +94,26 @@ def approve_proposals(case_dir: Path, batch: dict, accepted_ids: list[str]) -> d
     try: _write_json(path,{**receipt,'status':'committed'})
     except OSError as exc: raise ValueError('证据已登记，但回执写入失败；请重试同一批次以恢复') from exc
     return {'receipt':str(path),'inserted':count,'evidence_ids':receipt['evidence_ids']}
+
+
+def review_interactive(case_dir: Path, batch: dict, *, input_fn=input, output_fn=print) -> dict:
+    proposals=_batch(batch)
+    candidates={(c['scan_id'],c['candidate_id']):c for c in load_candidates(case_dir)}
+    selected=[]
+    for identifier,p in proposals.items():
+        c=candidates.get((p.get('scan_id'),p.get('candidate_id')))
+        output_fn('\n建议 '+identifier+'：'+_json(p))
+        if c:
+            output_fn('原文：'+_json([{'id':s['id'],'text':s['text'],'time_raw':s.get('time_raw')} for s in c['segments']]))
+        else: output_fn('无法找到对应原文快照')
+        while True:
+            choice=input_fn('[a]接收 / [s]跳过 / [q]结束：').strip().lower()
+            if choice=='q': return approve_proposals(case_dir,batch,selected)
+            if choice=='s': break
+            if choice=='a':
+                if c is None: output_fn('无法接收：找不到候选');continue
+                try: prepare_evidence(c,p)
+                except ValueError as exc: output_fn('无法接收：'+str(exc));continue
+                selected.append(identifier);break
+            output_fn('请输入 a、s 或 q。')
+    return approve_proposals(case_dir,batch,selected)
