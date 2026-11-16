@@ -15,6 +15,21 @@ from tests.fixtures import target
 
 
 class ForumTests(unittest.TestCase):
+    def test_failed_query_does_not_block_later_query(self):
+        def tool(args,timeout):
+            if args[2]=='search':
+                if args[3]=='失败': raise FetchError('tool_error','失败')
+                return [{'url':'https://www.xiaohongshu.com/explore/abc','title':'示例科技'}]
+            if args[2]=='note': return [{'field':'content','value':'示例科技团队经常加班到十点'}]
+            if args[2]=='comments': return []
+            raise AssertionError(args)
+        with tempfile.TemporaryDirectory() as tmp:
+            case=Path(tmp)/'case';create_case(case,**target())
+            run=self.api().scan_forums(case,['xiaohongshu'],queries=['失败','成功'],executable='/bin/opencli',tool=tool)
+            data=json.loads((run/'run.json').read_text())
+            self.assertEqual(len(data['candidates']),1)
+            self.assertEqual(data['channels'][0]['status'],'partial')
+            self.assertEqual(data['channels'][0]['errors'][0]['status'],'tool_error')
     def test_budget_expiry_retains_body_and_marks_later_channels(self):
         ticks=[0.0]
         def tool(args, timeout):

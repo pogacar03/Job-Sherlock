@@ -212,8 +212,15 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                     if channel=='zhihu':args.extend(['--type','answer'])
                     try:rows=([{'url': url} for url in source_urls.get(channel, [])] if source_urls is not None else maimai_search(executable,query,limit,timeout,tool) if channel=='maimai' else tool(args,timeout))
                     except FetchError as exc:
-                        if channel!='xiaohongshu' or exc.status!='timeout':raise
-                        rows=xhs_search(executable,query,limit,timeout,tool)
+                        if channel=='xiaohongshu' and exc.status=='timeout':
+                            try: rows=xhs_search(executable,query,limit,timeout,tool)
+                            except FetchError as fallback: exc=fallback
+                            else: exc=None
+                        if exc is not None:
+                            row['errors'].append({'stage':'discovery','status':exc.status,'reason':str(exc)})
+                            checkpoint(row)
+                            if exc.status in {'budget_exhausted','login_required','blocked','rate_limited'} or budget.remaining()<=0: break
+                            continue
                     save(rows)
                     for candidate in (rows if source_urls is not None else rows[:limit]):
                         url=candidate.get('url','')
@@ -254,7 +261,8 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                     checkpoint(row)
             row['matched']=len(documents)-start
             if row['matched']:row['status']='partial' if row['errors'] else 'ok'
-            elif row['errors']:row['status']='partial'
+            elif row['errors']:
+                row['status']=row['errors'][0]['status'] if row['checked']==0 and len({e['status'] for e in row['errors']})==1 else 'partial'
             elif any(lead['channel']==channel for lead in leads):row['status']='leads_only'
             elif source_urls is not None and any(c['channel']==channel for c in candidates):row['status']='ok'
         except KeyboardInterrupt:
