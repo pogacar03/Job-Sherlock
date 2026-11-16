@@ -15,7 +15,7 @@ description: Use when researching a prospective employer's department, work inte
 python3 -m reverse_check run cases/target --company '目标公司' --department '目标部门' --city '上海' --role '后端研发'
 ```
 
-首次在线使用前按 [论坛接入文档](../../../docs/forum-scan.md)配置 OpenCLI、浏览器扩展和平台会话。默认小红书、牛客、脉脉；脉脉评论尚未接通。安装状态不等于平台登录成功。已有案例使用 `scan`；已知原帖使用 `read`。登录、超时、未配置或无结果分别保留，不能推断没有问题。
+首次在线使用前按 [论坛接入文档](../../../docs/forum-scan.md)配置 OpenCLI、浏览器扩展和平台会话。默认小红书、牛客、脉脉；脉脉只读取可识别的已显示顶层评论，不读取折叠回复；作者和 AI 身份需回原帖核对。安装状态不等于平台登录成功。已有案例使用 `scan`；已知原帖使用 `read`。登录、超时、未配置或无结果分别保留，不能推断没有问题。
 
 读取 `cases/target/scans/*/run.json` 的 `candidates`，逐段审阅正文和可见评论；`cases/target/review/cards.html` 是只读卡片。搜索匹配提示不代表团队认证。原文无目标公司或范围、无体验日期时保留未知；不推断匿名作者身份、评论真实性或全部评论覆盖。
 

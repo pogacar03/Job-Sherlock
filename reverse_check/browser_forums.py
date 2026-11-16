@@ -157,7 +157,7 @@ def maimai_search(executable,query,limit,timeout,tool):
 def maimai_post(executable,url,timeout,tool):
     session='job-sherlock-maimai-post-'+uuid.uuid4().hex[:10]
     script=r'''(async () => {
-      const body=()=>document.querySelector('main .line-clamp-none.whitespace-pre-wrap');
+      const body=()=>document.querySelector('main [data-sentry-component="GossipDetailContent"] > [data-sentry-component="RichText"] > [data-rich-text]');
       for(let i=0;i<24&&!body()&&!location.pathname.includes('login');i++)await new Promise(r=>setTimeout(r,250));
       return [{kind:'page',url:location.href,content:body()?.innerText?.trim()||''}];
     })()'''
@@ -172,6 +172,41 @@ def maimai_post(executable,url,timeout,tool):
         text=rows[0].get('content','')
         if not isinstance(text,str) or len(text.strip())<20:raise FetchError('unsupported_content','没有识别到脉脉正文，不使用推荐区或页面导航充当原文')
         return [{'content':text}]
+    finally:
+        try:tool([executable,'browser','close','--session',session],min(timeout,5))
+        except FetchError:pass
+
+
+def maimai_comments(executable,url,timeout,tool):
+    """Read only positively identified visible top-level comment text.
+
+    Empty/loading states, authors and nested replies remain unverified.
+    """
+    session='job-sherlock-maimai-comments-'+uuid.uuid4().hex[:10]
+    script=r'''(async () => {
+      const list=()=>document.querySelector('main [data-sentry-component="CommentList"]');
+      const cards=()=>Array.from(list()?.children||[]).filter(e=>e.getAttribute('data-sentry-component')==='CommentCard');
+      for(let i=0;i<20&&!cards().length&&!location.pathname.includes('login');i++) await new Promise(r=>setTimeout(r,250));
+      const rows=[{kind:'page',url:location.href,status:cards().length?'visible_only':'unsupported_content'}];
+      for(const card of cards().slice(0,40)) {
+        const own=card.querySelectorAll(':scope > div.ml-8 > [data-sentry-component="RichText"] > [data-rich-text]');
+        if(own.length!==1) continue;
+        const text=own[0].innerText?.trim();
+        if(text) rows.push({text,author:null,author_url:null,id:null,parent_id:null,time:null});
+      }
+      if(cards().length && rows.length===1) rows[0].status='unsupported_content';
+      return rows;
+    })()'''
+    try:
+        tool([executable,'browser','open',url,'--session',session],timeout)
+        rows=tool([executable,'browser','eval',script,'--session',session],timeout)
+        if not rows or rows[0].get('kind')!='page': raise FetchError('invalid_response','脉脉评论页没有返回来源信息')
+        actual=rows[0].get('url','')
+        parts,host=parse_url(actual)
+        if host=='maimai.cn' and 'login' in parts.path: raise FetchError('login_required','脉脉评论需要登录')
+        if not _same_page(actual,url): raise FetchError('unsupported_source','脉脉评论页跳转与原帖不一致')
+        if rows[0].get('status')!='visible_only': raise FetchError('unsupported_content','没有识别到已显示的顶层评论；无法判断是否为空或仍在加载')
+        return [r for r in rows[1:] if isinstance(r.get('text'),str) and r['text'].strip()][:40]
     finally:
         try:tool([executable,'browser','close','--session',session],min(timeout,5))
         except FetchError:pass

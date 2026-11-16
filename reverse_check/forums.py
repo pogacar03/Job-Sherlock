@@ -28,7 +28,7 @@ CHANNELS = {
     'nowcoder': ('opencli', '站内搜索、正文与当前可见评论'),
     'zhihu': ('opencli', '站内搜索与回答详情；不读取其他类型正文'),
     'xiaohongshu': ('opencli', '站内搜索、笔记正文及有限评论/楼中楼'),
-    'maimai': ('browser', '动态搜索需登录；公开职言正文读取；评论尚未接通'),
+    'maimai': ('browser', '动态搜索需登录；读取正文及已识别的可见顶层评论，不读取折叠回复'),
     'offershow': ('manual', '仅工作氛围/强度讨论材料导入，不查询薪资'),
     'kanzhun': ('manual', '员工工作体验原文需用户读取'),
 }
@@ -132,7 +132,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
     steps=[];current={'channel':None,'query':None,'url':None}
     def tool(args, call_timeout):
         cleanup=args[1:3]==['browser','close'] or args[1:5]==['browser','chrome','call','tabs.remove']
-        stage='cleanup' if cleanup else ('comments' if 'comments' in args or (current['channel']=='nowcoder' and current['url'] and len(args)>1 and args[1]=='browser') else 'discovery' if current['url'] is None else 'detail')
+        stage='cleanup' if cleanup else ('comments' if 'comments' in args or any(isinstance(a,str) and a.startswith('job-sherlock-maimai-comments-') for a in args) or (current['channel']=='nowcoder' and current['url'] and len(args)>1 and args[1]=='browser') else 'discovery' if current['url'] is None else 'detail')
         started=clock();status='ok'
         try:
             allowed=budget.cleanup_timeout() if cleanup else budget.timeout_for(call_timeout)

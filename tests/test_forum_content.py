@@ -9,6 +9,18 @@ from tests.fixtures import target
 
 
 class ForumContentTests(unittest.TestCase):
+    def test_maimai_comments_are_separate_and_failure_preserves_body(self):
+        from unittest.mock import patch
+        from reverse_check.forum_content import read_forum_thread
+        url='https://maimai.cn/community/gossip-detail/42'
+        with patch('reverse_check.forum_content.maimai_post',return_value=[{'content':'正文'}]), patch('reverse_check.forum_content.maimai_comments',return_value=[{'text':'评论','author':None}]):
+            result=read_forum_thread('maimai',url,executable='opencli',timeout=10,tool=lambda *a:[])
+            self.assertEqual(result['comment_status'],'top_level_visible_only')
+            self.assertEqual([s['text'] for s in result['segments']],['正文','评论'])
+        with patch('reverse_check.forum_content.maimai_post',return_value=[{'content':'正文'}]), patch('reverse_check.forum_content.maimai_comments',side_effect=FetchError('unsupported_content','未确认')):
+            result=read_forum_thread('maimai',url,executable='opencli',timeout=10,tool=lambda *a:[])
+            self.assertEqual(result['segments'][0]['text'],'正文')
+            self.assertEqual(result['comment_status'],'unsupported_content')
     def test_identity_ignores_signature_and_keeps_platform(self):
         from reverse_check.forum_content import thread_key
         self.assertEqual(thread_key('xiaohongshu', 'https://www.xiaohongshu.com/explore/abc?xsec_token=a'), thread_key('xiaohongshu', 'https://www.xiaohongshu.com/search_result/abc?xsec_token=b'))

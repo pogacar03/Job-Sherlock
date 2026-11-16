@@ -5,7 +5,7 @@ import json
 import re
 from urllib.parse import parse_qs
 
-from .browser_forums import maimai_post, nowcoder_comments
+from .browser_forums import maimai_post, maimai_comments, nowcoder_comments
 from .http_source import FetchError, parse_url
 
 
@@ -58,8 +58,12 @@ def read_forum_thread(channel: str, url: str, *, executable: str, timeout: float
             comments = nowcoder_comments(executable,url,timeout,tool); status = 'visible_only'
         elif channel == 'xiaohongshu':
             comments = tool([executable,channel,'comments',url,'--limit','20','--with-replies','true','-f','json'],timeout); status = 'bounded'
+        elif channel == 'maimai':
+            comments = maimai_comments(executable,url,timeout,tool); status = 'top_level_visible_only'
     except FetchError as exc:
         status = exc.status; errors.append({'stage':'comments','status':exc.status,'reason':str(exc)})
     result = normalize_thread(channel,url,title,body,comments,comment_status=status,published_at_raw=None,retrieved_at=datetime.now(timezone(timedelta(hours=8))).date().isoformat())
+    if channel == 'maimai':
+        result['scope_note'] = '仅已识别的可见顶层评论，不含折叠回复；作者及平台 AI 身份未识别，需回原帖核对，不能自动作为员工体验'
     result['errors'] = errors
     return result
