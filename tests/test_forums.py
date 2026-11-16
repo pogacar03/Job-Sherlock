@@ -15,6 +15,47 @@ from tests.fixtures import target
 
 
 class ForumTests(unittest.TestCase):
+    def test_budget_expiry_retains_body_and_marks_later_channels(self):
+        ticks=[0.0]
+        def tool(args, timeout):
+            if args[2]=='search': return [{'url':'https://www.xiaohongshu.com/explore/abc','title':'示例科技'}]
+            if args[2]=='note': return [{'field':'content','value':'示例科技团队体验正文'}]
+            if args[2]=='comments': ticks[0]=11; raise FetchError('timeout','评论超时')
+            raise AssertionError(args)
+        with tempfile.TemporaryDirectory() as tmp:
+            case=Path(tmp)/'case';create_case(case,**target())
+            run=self.api().scan_forums(case,['xiaohongshu','nowcoder'],queries=['示例科技'],executable='/bin/opencli',tool=tool,total_timeout=10,clock=lambda:ticks[0])
+            data=json.loads((run/'run.json').read_text())
+            self.assertEqual(data['status'],'budget_exhausted')
+            self.assertEqual(len(data['candidates']),1)
+            self.assertEqual(data['channels'][1]['status'],'not_started_budget')
+            self.assertEqual(read_evidence(case),[])
+
+    def test_invalid_total_budget_has_no_side_effect(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case=Path(tmp)/'case';create_case(case,**target())
+            for value in (True, 0, 1801, float('nan'), float('inf')):
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    self.api().scan_forums(case,total_timeout=value)
+            self.assertFalse((case/'scans').exists())
+
+    def test_interruption_saves_previous_query(self):
+        searches=[0]
+        def tool(args, timeout):
+            if args[2]=='search':
+                searches[0]+=1
+                if searches[0]==2: raise KeyboardInterrupt()
+                return [{'url':'https://www.xiaohongshu.com/explore/abc','title':'示例科技'}]
+            if args[2]=='note': return [{'field':'content','value':'示例科技团队工作体验'}]
+            if args[2]=='comments': return []
+            raise AssertionError(args)
+        with tempfile.TemporaryDirectory() as tmp:
+            case=Path(tmp)/'case';create_case(case,**target())
+            run=self.api().scan_forums(case,['xiaohongshu'],queries=['一','二'],executable='/bin/opencli',tool=tool)
+            data=json.loads((run/'run.json').read_text())
+            self.assertEqual(data['status'],'interrupted')
+            self.assertEqual(len(data['candidates']),1)
+
     def test_opencli_structured_stdout_auth_error_is_not_generic_failure(self):
         script='import json; print(json.dumps({"ok":False,"error":{"code":"AUTH_REQUIRED","message":"Login needed"}})); raise SystemExit(77)'
         with self.assertRaises(FetchError) as error:

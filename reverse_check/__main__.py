@@ -44,6 +44,7 @@ def main(argv=None):
     scan.add_argument('--topic-id',action='append',help='V2EX主题ID；不提供时检查最近主题')
     scan.add_argument('--limit',type=int,default=5,help='每渠道最多保存的相关原文数，1–20')
     scan.add_argument('--timeout',type=float,default=20,help='单次网络或工具调用超时秒数')
+    scan.add_argument('--total-timeout',type=float,default=180,help='本轮扫描总时限秒数')
     read = subs.add_parser('read', help='读取已知论坛原帖并保存待审阅材料')
     read.add_argument('case_dir',type=Path)
     read.add_argument('url')
@@ -94,13 +95,14 @@ def main(argv=None):
         elif args.command == 'channels':
             print(json.dumps(channel_status(all_channels=args.all),ensure_ascii=False,indent=2))
         elif args.command in {'scan','read'}:
-            run=scan_forums(args.case_dir,args.source,args.query,args.limit,args.timeout,args.topic_id,search_terms=args.search_term) if args.command == 'scan' else scan_forums(args.case_dir,[args.source],timeout=args.timeout,source_urls={args.source:[args.url]})
+            run=scan_forums(args.case_dir,args.source,args.query,args.limit,args.timeout,args.topic_id,search_terms=args.search_term,total_timeout=args.total_timeout) if args.command == 'scan' else scan_forums(args.case_dir,[args.source],timeout=args.timeout,source_urls={args.source:[args.url]})
             data=json.loads((run/'run.json').read_text())
             for row in data['channels']:
                 print(f'{row["id"]}: {row["status"]}，{row["matched"]} 条待审阅原文，{row.get("leads",0)} 条待追查线索；{row["scope"]}')
             print((run/'run.json').resolve())
             if data['collection']:
                 print((args.case_dir/data['collection']/'evidence-drafts.json').resolve())
+            if data.get('status') == 'interrupted': return 130
         elif args.command == 'collect':
             urls=json.loads(args.urls.read_text(encoding='utf-8'))
             run=collect_sources(args.case_dir,urls,load_sources(args.sources),args.workers,args.timeout,args.max_bytes)

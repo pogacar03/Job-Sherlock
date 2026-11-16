@@ -38,6 +38,8 @@ python3 -m reverse_check scan cases/target --source v2ex --topic-id 123456
 
 示例主题 ID 需要替换为真实目标。每个核心渠道默认三组搜索词（部门线索、加班、氛围），保留完整部门名称；可重复使用 --search-term 添加最多三个搜索提示词；每组最多读取 limit 条候选详情，最多保存 limit 篇相关原文。timeout 是单次调用预算，不是整轮扫描的总时限。V2EX 最多检查100条列表记录；回复只读第一页、最多100条，不能声称已读完所有评论。
 
+`scan --total-timeout 180` 控制整轮扫描预算；单次调用仍受 `--timeout` 限制。扫描中保存检查点，超时或中断时保留已完成的候选，并记录未开始的渠道。关闭本轮浏览器页面另设有界清理时间。
+
 ## OpenCLI 准备
 
 根据 [OpenCLI 官方说明](https://github.com/jackwener/OpenCLI)安装命令与浏览器扩展。当前开发环境已安装 CLI 2.0.3；2026-11-11 doctor 确认扩展连接，牛客搜索与正文读取已经实测成功。知乎返回 AUTH_REQUIRED，小红书站内跳转超时；连接扩展不表示每个平台都已登录。

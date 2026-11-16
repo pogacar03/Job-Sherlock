@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from urllib.parse import urlsplit, parse_qs
 import uuid
 
@@ -17,6 +18,7 @@ from .sources import load_sources
 from .browser_forums import xhs_search, maimai_search
 from .forum_content import read_forum_thread, thread_key, candidate_id_for
 from .queries import build_forum_queries, match_hint
+from .budget import Budget
 
 DEFAULT_CHANNELS = ('xiaohongshu','nowcoder','maimai')
 
@@ -91,8 +93,7 @@ def _allowed(channel,url):
     return any(host==d or host.endswith('.'+d) for d in DOMAINS[channel])
 
 
-def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids=None,fetch=None,executable=_AUTO,tool=None, *, source_urls=None, search_terms=None):
-    case=read_case(case_dir)
+def validate_scan_options(*, channels=None, queries=None, limit=5, timeout=20, topic_ids=None, source_urls=None, total_timeout=180, search_terms=None) -> dict:
     channels=list(dict.fromkeys(channels or DEFAULT_CHANNELS))
     if any(c not in CHANNELS for c in channels):raise ValueError('未知论坛渠道')
     if type(limit) is not int or not 1<=limit<=20:raise ValueError('limit需要1–20')
@@ -114,8 +115,37 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                         raise FetchError('unsupported_source', '小红书链接缺少页面提供的签名')
         except (FetchError, TypeError) as exc:
             raise ValueError('原帖链接不支持') from exc
+    Budget(total_timeout)
+    if queries is not None and search_terms is not None: raise ValueError('query 与 search-term 不能同时使用')
+    build_forum_queries({'company':'验证','department':None},search_terms)
+    return {'channels':channels,'queries':queries,'limit':limit,'timeout':timeout,'topic_ids':topic_ids,'source_urls':source_urls,'total_timeout':total_timeout,'search_terms':search_terms}
+
+
+def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids=None,fetch=None,executable=_AUTO,tool=None, *, source_urls=None, search_terms=None, total_timeout=180, clock=time.monotonic):
+    case=read_case(case_dir)
+    options=validate_scan_options(channels=channels,queries=queries,limit=limit,timeout=timeout,topic_ids=topic_ids,source_urls=source_urls,total_timeout=total_timeout,search_terms=search_terms)
+    channels=options['channels'];topic_ids=options['topic_ids']
+    budget=Budget(total_timeout,clock=clock)
+    start_time=clock();started_at=datetime.now(timezone.utc).isoformat()
     executable=shutil.which('opencli') if executable is _AUTO else executable
-    fetch=fetch or public_fetch;tool=tool or _tool
+    original_fetch=fetch or public_fetch;original_tool=tool or _tool
+    steps=[];current={'channel':None,'query':None,'url':None}
+    def tool(args, call_timeout):
+        cleanup=args[1:3]==['browser','close'] or args[1:5]==['browser','chrome','call','tabs.remove']
+        stage='cleanup' if cleanup else ('comments' if 'comments' in args or (current['channel']=='nowcoder' and current['url'] and len(args)>1 and args[1]=='browser') else 'discovery' if current['url'] is None else 'detail')
+        started=clock();status='ok'
+        try:
+            allowed=budget.cleanup_timeout() if cleanup else budget.timeout_for(call_timeout)
+            return original_tool(args,min(call_timeout,allowed))
+        except KeyboardInterrupt:
+            status='interrupted';budget.stop();raise
+        except FetchError as exc:
+            status=exc.status;raise
+        finally:
+            steps.append({'channel':current['channel'],'stage':stage,'query':current['query'],'url':current['url'],'status':status,'elapsed_ms':max(0,round((clock()-started)*1000))})
+    def fetch(url, **kwargs):
+        kwargs['timeout']=budget.timeout_for(kwargs['timeout'])
+        return original_fetch(url, **kwargs)
     terms=[case['company'],*case['company_aliases']]
     if queries is not None and search_terms is not None: raise ValueError('query 与 search-term 不能同时使用')
     generated_queries=build_forum_queries(case,search_terms)
@@ -126,6 +156,9 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
     def save(value):
         nonlocal counter
         counter+=1;_write_json(root/'raw'/f'{counter:04}.json',value)
+    def checkpoint(row=None):
+        channels_snapshot=results + ([dict(row)] if row is not None and row not in results else [])
+        _write_json(root/'run.json',{'schema_version':2,'focus':['workload','atmosphere'],'channels':channels_snapshot,'documents':documents,'leads':leads,'candidates':candidates,'options':{'queries':queries,'search_terms':search_terms or [],'total_timeout':total_timeout},'steps':steps,'started_at':started_at,'finished_at':datetime.now(timezone.utc).isoformat(),'elapsed_ms':max(0,round((clock()-start_time)*1000)),'status':'partial','collection':None})
     def get(url):
         def allow_url(target):
             if not _allowed('v2ex',target):raise FetchError('unsupported_source','跳转离开V2EX，未读取为论坛材料')
@@ -140,11 +173,14 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
         try:return _rows(json.loads(page.body))
         except (ValueError,UnicodeError) as exc:raise FetchError('invalid_response','论坛接口没有返回有效JSON记录') from exc
     def relevant(text):return any(t.casefold() in text.casefold() for t in terms) and bool(FOCUS.search(text))
+    interrupted=False
     for channel in channels:
+        current['channel']=channel;current['query']=None;current['url']=None
         backend,scope=CHANNELS[channel]
         row={'id':channel,'status':'no_results','scope':scope,'queries':queries if backend in {'opencli','browser'} else [],'checked':0,'matched':0,'errors':[]}
         start=len(documents)
         try:
+            budget.timeout_for(timeout)
             if backend=='manual':row['status']='manual_required'
             elif backend in {'opencli','browser'} and not executable:row['status']='not_configured'
             elif backend=='native':
@@ -152,7 +188,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                 if topic_ids:
                     for tid in topic_ids:topics.extend(get('https://v2ex.com/api/topics/show.json?id='+str(tid)))
                 else:topics=get('https://v2ex.com/api/topics/latest.json')
-                candidates=0
+                native_candidates=0
                 for topic in topics[:100]:
                     text=_plain(topic.get('title',''))+'\n'+_plain(topic.get('content',''))
                     row['checked']+=1
@@ -160,8 +196,8 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                     if re.search('薪资|工资|薪水',text) and not FOCUS.search(text):continue
                     tid=topic.get('id')
                     if type(tid) is not int or tid<=0:continue
-                    if candidates>=limit:break
-                    candidates+=1
+                    if native_candidates>=limit:break
+                    native_candidates+=1
                     try:
                         replies=get(f'https://v2ex.com/api/replies/show.json?topic_id={tid}&page=1&page_size=100')
                         for reply in replies[:100]:text+='\n回复 '+str(reply.get('id',''))+'：'+_plain(reply.get('content',''))
@@ -171,6 +207,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
             else:
                 seen=set()
                 for query in ([None] if source_urls is not None else queries):
+                    current['query']=query;current['url']=None
                     args=[executable,channel,'search',query,'--limit',str(limit),'-f','json']
                     if channel=='zhihu':args.extend(['--type','answer'])
                     try:rows=([{'url': url} for url in source_urls.get(channel, [])] if source_urls is not None else maimai_search(executable,query,limit,timeout,tool) if channel=='maimai' else tool(args,timeout))
@@ -182,6 +219,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                         url=candidate.get('url','')
                         if not isinstance(url,str) or url in seen or not _allowed(channel,url):continue
                         seen.add(url);row['checked']+=1
+                        current['url']=url
                         if channel=='zhihu' and not re.search(r'/answer/[0-9]+',url):continue
                         try:
                             if channel in DEFAULT_CHANNELS:
@@ -209,18 +247,28 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                             if relevant(thread):documents.append(record)
                             elif any(t.casefold() in thread.casefold() for t in terms):leads.append(record)
                         except FetchError as exc:row['errors'].append({'stage':'detail','status':exc.status,'reason':str(exc)})
+                        checkpoint(row)
+                        if budget.remaining()<=0: break
                         if source_urls is None and len(documents)-start>=limit:break
                     if source_urls is None and len(documents)-start>=limit:break
+                    checkpoint(row)
             row['matched']=len(documents)-start
             if row['matched']:row['status']='partial' if row['errors'] else 'ok'
             elif row['errors']:row['status']='partial'
             elif any(lead['channel']==channel for lead in leads):row['status']='leads_only'
+        except KeyboardInterrupt:
+            budget.stop();interrupted=True;row['status']='interrupted';row['matched']=len(documents)-start
         except FetchError as exc:
             row['matched']=len(documents)-start
             row['status']='partial' if row['matched'] else exc.status
             row['errors'].append({'stage':'discovery','status':exc.status,'reason':str(exc)})
         results.append(row)
         row['leads']=sum(lead['channel']==channel for lead in leads)
+        checkpoint()
+        if interrupted or budget.remaining() <= 0: break
+    if not interrupted and budget.remaining()<=0:
+        for channel in channels[len(results):]:
+            results.append({'id':channel,'status':'not_started_budget','scope':CHANNELS[channel][1],'queries':[],'checked':0,'matched':0,'leads':0,'errors':[]})
     collection=None
     if documents:
         cache={d['url']:d for d in documents}
@@ -229,7 +277,8 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
         registry={'schema_version':1,'sources':[{**s,'mode':'public'} for s in registry['sources']]}
         def cached(url,**kwargs):return FetchedPage(url,200,'text/plain; charset=utf-8',cache[url]['text'].encode())
         collection=collect_sources(case_dir,list(cache),registry=registry,fetch=cached)
-    _write_json(root/'run.json',{'schema_version':2,'focus':['workload','atmosphere'],'channels':results,'documents':documents,'leads':leads,'candidates':candidates,'options':{'queries':queries,'search_terms':search_terms or []},'collection':str(collection.relative_to(case_dir)) if collection else None,'note':'全部材料待审阅；公司命中不代表部门归属；失败或未配置不代表没有问题'})
+    state='interrupted' if interrupted else 'budget_exhausted' if budget.remaining()<=0 else 'partial' if any(r['status'] not in {'ok','no_results','leads_only'} for r in results) else 'completed'
+    _write_json(root/'run.json',{'schema_version':2,'focus':['workload','atmosphere'],'channels':results,'documents':documents,'leads':leads,'candidates':candidates,'options':{'queries':queries,'search_terms':search_terms or [],'total_timeout':total_timeout},'steps':steps,'started_at':started_at,'finished_at':datetime.now(timezone.utc).isoformat(),'elapsed_ms':max(0,round((clock()-start_time)*1000)),'status':state,'collection':str(collection.relative_to(case_dir)) if collection else None,'note':'全部材料待审阅；公司命中不代表部门归属；失败或未配置不代表没有问题'})
     return root
 
 
