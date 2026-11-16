@@ -61,6 +61,7 @@ def prepare_evidence(candidate: dict, proposal: dict) -> dict:
     for entry in basis:
         if not isinstance(entry,dict) or set(entry)!={'field','segment_id','part','quote'} or entry['field'] not in allowed: raise ValueError('依据字段无效')
         if entry['part']!='text' and not (entry['field']=='published_at' and entry['part']=='time_raw'): raise ValueError('依据位置无效')
+        if entry['field']=='source_type' and entry['segment_id']!=proposal['segment_id']: raise ValueError('作者身份依据必须来自所引用段落')
         check_quote(entry['segment_id'],entry['part'],entry['quote']);supported.add(entry['field'])
     required={'source_type'}|{'scope.'+k for k,v in scope.items() if v is not None and v!=''}|{k for k in ('observed_at','published_at') if proposal[k] is not None}
     if not required<=supported: raise ValueError('非空来源、范围或日期缺少原文依据')

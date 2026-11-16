@@ -4,6 +4,8 @@
 
 每项必须指向 scan_id、candidate_id 和 segment_id；quote 必须逐字出现在该段。basis 的每项包含 field、segment_id、part（text 或发布时允许 time_raw）和 quote。非空来源类型、范围及日期均要有对应原文依据；未知填 null。范围、体验时间及作者身份不能用调查目标补齐。原文没有可定位的公司时不能作为当前账本记录。
 
+来源类型的依据必须来自被引用的同一段，不能把主帖作者的身份声明移用给评论作者。其他范围与日期依据也需要人工核对是否适用于该作者。
+
 kind 为 experience/question/hearsay/official/unknown；只有员工亲历建议可经此流程接收，其他内容作为线索。程序检查快照、引用和格式，不认证匿名身份、原文真假、依据语义或团队归属，需由审阅者判断。
 
 旧版手工 `import` 仍可按[证据格式](evidence-format.md)登记已审阅材料与背景。

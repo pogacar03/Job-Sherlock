@@ -28,15 +28,7 @@
 
 ## 先看一份报告
 
-<p align="center">
-  <a href="docs/assets/report-preview.png">
-    <img src="docs/assets/report-preview.png" alt="实际生成的求职侦探报告：展示工作强度的相反观察、团队氛围材料覆盖，以及待核实的其他维度。" width="100%">
-  </a>
-</p>
-
-<p align="center"><sub>由仓库内演示命令实际生成并截图；公司、人物与材料全部虚构。点击图片可查看大图。</sub></p>
-
-下图是旧版六维报告截图；当前报告只分析工作强度和团队氛围。演示保存了 **8 条材料**，其中 **4 条符合分析条件，合并为 3 个来源簇**。
+演示材料全部虚构。运行下方 demo 后可在本地查看工作强度与团队氛围报告。
 
 | 报告里的结果 | 它意味着什么 |
 | :--- | :--- |
@@ -50,12 +42,13 @@
 ## 从论坛查工作氛围与强度
 
 ```bash
-python3 -m reverse_check channels
-python3 -m reverse_check scan cases/target --limit 5 --timeout 20
-python3 -m reverse_check report cases/target
+python3 -m reverse_check run cases/target --company '目标公司' --department '目标部门' --city '上海' --role '后端研发'
+# 查看 cases/target/review/cards.html，并按 docs/review-format.md 准备建议
+python3 -m reverse_check review cases/target --file cases/target/proposals.json
+python3 -m reverse_check report cases/target --out reports/target
 ```
 
-案例先用 `init` 创建。`scan` 默认聚焦小红书、牛客、脉脉：读取牛客正文及可见评论、小红书笔记与有限评论，并通过浏览器职言搜索读取脉脉公开正文。需要配置 OpenCLI 浏览器连接与平台会话；脉脉评论暂未接通，导航或访问失败会单独记录。没有体验描述的部门求助帖保留为待追查线索。扫描报告聚焦工作氛围与强度，不查询薪资；读取结果需要审阅后才能进入证据账本。参见 [论坛接入、限制和配置](docs/forum-scan.md)。
+`run` 创建案例并默认扫描小红书、牛客、脉脉：读取牛客正文及可见评论、小红书笔记与有限评论，并通过浏览器职言搜索读取脉脉公开正文。需要配置 OpenCLI 浏览器连接与平台会话；脉脉评论暂未接通，导航或访问失败会单独记录。没有体验描述的部门求助帖保留为待追查线索。扫描报告聚焦工作氛围与强度，不查询薪资；读取结果需要审阅后才能进入证据账本。参见 [论坛接入、限制和配置](docs/forum-scan.md)。
 
 ## 30 秒，跑出第一份报告
 
@@ -98,9 +91,9 @@ reports/first-look/
 最后给我一份报告，以及下一轮面试应该追问的问题。
 ```
 
-Skill 会使用**宿主已有的搜索能力**发现链接，再调用本地 `collect` 并发读取支持的公开原文；登录平台或需要浏览器渲染的内容使用宿主网页工具或用户材料。每次采集保留来源配置、响应快照、最终URL与状态。有子 Agent 工具时，员工材料与官方背景可分别搜集，最后汇总到同一个证据账本。
+Skill 可以调用 `run` 或 `read` 获取分段候选，再协助生成引用原文的建议；用户在终端审阅，确认接收后才进入证据账本。
 
-材料来自公开网页，也可以来自你提供的访谈笔记、招聘内容或已读取文本。需要登录、付费或无法访问的原文会被记为缺口；CLI 本身不内置搜索引擎或登录平台爬虫。公开原文采集可直接使用，抓到的文本须审阅后才能导入证据。
+材料来自公开网页，也可以来自你提供的访谈笔记、招聘内容或已读取文本。需要登录、付费或无法访问的原文会被记为缺口；站内读取依赖 OpenCLI 与相应平台会话。公开原文采集可直接使用，抓到的文本须审阅后才能导入证据。
 
 ## 自己掌控每一步
 
@@ -237,7 +230,7 @@ python3 -m unittest discover -v
 | [证据格式](docs/evidence-format.md) | 字段、来源合并、时间与范围判定 |
 | [公开来源采集](docs/collection.md) | 来源配置、并发读取、状态与草稿审阅 |
 | [首版设计](docs/superpowers/specs/2026-11-10-reverse-check-design.md) | 目标、架构与当前范围 |
-| [后续开发计划与模型交接](docs/superpowers/plans/2026-11-15-development-roadmap.md) | v0.3 三阶段任务、接口、测试与验收；尚未实施 |
+| [后续开发计划与模型交接](docs/superpowers/plans/2026-11-15-development-roadmap.md) | v0.3 三阶段任务、接口、测试与验收进度 |
 | [Sherlock README 观察](docs/research/2026-11-10-sherlock-readme.md) | 用户确认的参考项目与本次呈现方式 |
 
 ## 灵感与致谢

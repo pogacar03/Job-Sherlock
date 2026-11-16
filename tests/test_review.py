@@ -41,6 +41,15 @@ class ReviewTests(unittest.TestCase):
             if change=='scan_id':proposal['scan_id']='../else'
             with self.subTest(change=change),self.assertRaises(ValueError):prepare_evidence(candidate,proposal)
 
+    def test_author_claim_must_be_in_quoted_segment(self):
+        from reverse_check.review import prepare_evidence
+        from reverse_check.forum_content import candidate_id_for
+        c,p=sample()
+        comment={'id':'comment-0001','kind':'comment','text':'最近每晚十点下班','author':'另一人','author_url':None,'platform_id':None,'parent_id':None,'time_raw':None}
+        c['segments'].append(comment);c['candidate_id']=candidate_id_for(c['thread_key'],c['title'],c['segments'])
+        p.update(candidate_id=c['candidate_id'],segment_id='comment-0001')
+        with self.assertRaises(ValueError):prepare_evidence(c,p)
+
     def test_batch_atomic_and_idempotent(self):
         from reverse_check.review import approve_proposals
         c,p=sample()
@@ -80,3 +89,24 @@ class ReviewTests(unittest.TestCase):
             with self.assertRaises(KeyboardInterrupt):
                 review_interactive(path,{'schema_version':1,'proposals':[p]},input_fn=interrupted,output_fn=lambda _:None)
             self.assertEqual(read_evidence(path),[])
+
+    def test_fictional_experience_question_other_team_and_unknown_date(self):
+        from reverse_check.review import approve_proposals, prepare_evidence
+        from reverse_check.analysis import analyze
+        from reverse_check.casebook import read_case
+        from reverse_check.forum_content import candidate_id_for
+        c,p=sample()
+        c['segments'][0]['text']+=' 其他团队经历发生于2026-11-10。'
+        c['candidate_id']=candidate_id_for(c['thread_key'],c['title'],c['segments'])
+        p['candidate_id']=c['candidate_id']
+        with self.assertRaises(ValueError):prepare_evidence(c,{**p,'kind':'question'})
+        other={**p,'id':'p2','scope':{**p['scope'],'department':'其他团队'},'observed_at':'2026-11-10'}
+        other['basis']=[entry if entry['field']!='scope.department' else {**entry,'quote':'其他团队'} for entry in p['basis']]+[{'field':'observed_at','segment_id':'body','part':'text','quote':'2026-11-10'}]
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'case';setup_case(path,c)
+            approve_proposals(path,{'schema_version':1,'proposals':[p,other]},['p1','p2'])
+            analysis=analyze(read_case(path),read_evidence(path))
+            self.assertEqual(analysis['summary']['eligible_count'],0)
+            self.assertEqual(len(analysis['background']),2)
+            self.assertIn('观察时间不明',analysis['background'][0]['reasons'])
+            self.assertIn('部门不匹配',analysis['background'][1]['reasons'])
