@@ -98,7 +98,7 @@ def main(argv=None):
             run=scan_forums(args.case_dir,args.source,args.query,args.limit,args.timeout,args.topic_id,search_terms=args.search_term,total_timeout=args.total_timeout) if args.command == 'scan' else scan_forums(args.case_dir,[args.source],timeout=args.timeout,source_urls={args.source:[args.url]})
             data=json.loads((run/'run.json').read_text())
             for row in data['channels']:
-                print(f'{row["id"]}: {row["status"]}，{row["matched"]} 条待审阅原文，{row.get("leads",0)} 条待追查线索；{row["scope"]}')
+                print(f'{row["id"]}: {row["status"]}，{row.get("candidates",0)} 条已读取候选，{row["matched"]} 条筛选命中，{row.get("leads",0)} 条待追查线索；{row["scope"]}')
             print((run/'run.json').resolve())
             if data['collection']:
                 print((args.case_dir/data['collection']/'evidence-drafts.json').resolve())

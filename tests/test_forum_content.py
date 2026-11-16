@@ -44,6 +44,20 @@ class ForumContentTests(unittest.TestCase):
             self.assertEqual(read_evidence(case), [])
             self.assertTrue(all(url in cmd for cmd in calls))
 
+    def test_successful_direct_read_without_company_is_not_no_results(self):
+        from reverse_check.forums import scan_forums
+        url = 'https://www.xiaohongshu.com/explore/abc?xsec_token=fixture'
+        def tool(args, timeout):
+            if args[2] == 'note': return [{'field': 'content', 'value': '正文没有公司名'}]
+            if args[2] == 'comments': return []
+            raise AssertionError(args)
+        with tempfile.TemporaryDirectory() as tmp:
+            case = Path(tmp)/'case'; create_case(case, **target())
+            run = scan_forums(case, ['xiaohongshu'], executable='/bin/opencli', tool=tool, source_urls={'xiaohongshu':[url]})
+            data = json.loads((run/'run.json').read_text())
+            self.assertEqual(data['channels'][0]['status'], 'ok')
+            self.assertEqual(data['channels'][0]['candidates'], 1)
+
     def test_invalid_direct_link_fails_before_creating_scan(self):
         from reverse_check.forums import scan_forums
         with tempfile.TemporaryDirectory() as tmp:

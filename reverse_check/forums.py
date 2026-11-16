@@ -256,6 +256,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
             if row['matched']:row['status']='partial' if row['errors'] else 'ok'
             elif row['errors']:row['status']='partial'
             elif any(lead['channel']==channel for lead in leads):row['status']='leads_only'
+            elif source_urls is not None and any(c['channel']==channel for c in candidates):row['status']='ok'
         except KeyboardInterrupt:
             budget.stop();interrupted=True;row['status']='interrupted';row['matched']=len(documents)-start
         except FetchError as exc:
@@ -264,6 +265,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
             row['errors'].append({'stage':'discovery','status':exc.status,'reason':str(exc)})
         results.append(row)
         row['leads']=sum(lead['channel']==channel for lead in leads)
+        row['candidates']=sum(item['channel']==channel for item in candidates)
         checkpoint()
         if interrupted or budget.remaining() <= 0: break
     if not interrupted and budget.remaining()<=0:
