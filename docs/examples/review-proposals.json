@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "proposals": [
+    {
+      "id": "p1",
+      "scan_id": "scan1",
+      "candidate_id": "c-bf5ef19c9d9abd6debfb",
+      "segment_id": "body",
+      "quote": "最近每晚十点下班",
+      "observation": "作者自述近期晚十点下班",
+      "kind": "experience",
+      "source_type": "employee_account",
+      "dimension": "workload",
+      "direction": "risk",
+      "scope": {
+        "company": "示例科技",
+        "business_unit": null,
+        "department": "搜索平台部",
+        "city": null,
+        "role": null
+      },
+      "observed_at": null,
+      "published_at": null,
+      "basis": [
+        {
+          "field": "source_type",
+          "segment_id": "body",
+          "part": "text",
+          "quote": "我是示例科技员工"
+        },
+        {
+          "field": "scope.company",
+          "segment_id": "body",
+          "part": "text",
+          "quote": "示例科技"
+        },
+        {
+          "field": "scope.department",
+          "segment_id": "body",
+          "part": "text",
+          "quote": "搜索平台部"
+        }
+      ]
+    }
+  ]
+}

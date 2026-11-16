@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "candidates": [
+    {
+      "channel": "nowcoder",
+      "url": "https://www.nowcoder.com/discuss/42",
+      "title": "标题",
+      "text": "标题\n我是示例科技员工，搜索平台部最近每晚十点下班。",
+      "comments": [],
+      "comment_status": "visible_only",
+      "published_at": null,
+      "published_at_raw": null,
+      "retrieved_at": "2026-11-16",
+      "thread_key": "nowcoder:42",
+      "segments": [
+        {
+          "id": "body",
+          "kind": "body",
+          "text": "我是示例科技员工，搜索平台部最近每晚十点下班。",
+          "author": null,
+          "author_url": null,
+          "platform_id": null,
+          "parent_id": null,
+          "time_raw": null
+        }
+      ],
+      "candidate_id": "c-bf5ef19c9d9abd6debfb",
+      "errors": [],
+      "scope_note": "正文与有限评论；作者身份、体验时间和部门归属待核实，评论数量不是独立证人数",
+      "scan_id": "scan1"
+    }
+  ],
+  "channels": [],
+  "leads": []
+}
