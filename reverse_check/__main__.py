@@ -12,6 +12,7 @@ from .report import write_report
 from .collection import collect_sources
 from .sources import load_sources
 from .forums import channel_status, scan_forums, DEFAULT_CHANNELS
+from .pilot import write_pilot_report
 
 
 def main(argv=None):
@@ -58,9 +59,16 @@ def main(argv=None):
     report.add_argument('--force',action='store_true')
     demo = subs.add_parser('demo', help='运行虚构材料的完整演示')
     demo.add_argument('--out',type=Path,default=Path('reports/demo'))
+    evaluate = subs.add_parser('evaluate', help='统计已审阅的试点评测')
+    evaluate.add_argument('--file', type=Path, required=True)
+    evaluate.add_argument('--out', type=Path, required=True)
+    evaluate.add_argument('--force', action='store_true')
     args = parser.parse_args(argv)
     try:
-        if args.command == 'init':
+        if args.command == 'evaluate':
+            for path in write_pilot_report(json.loads(args.file.read_text(encoding='utf-8')), args.out, force=args.force):
+                print(path.resolve())
+        elif args.command == 'init':
             fields = {k:getattr(args,k) for k in ('company','department','business_unit','city','role','lookback_days','demo')}
             fields['company_aliases'] = args.company_alias
             if args.as_of:

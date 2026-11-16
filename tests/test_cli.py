@@ -26,6 +26,40 @@ class CliTests(unittest.TestCase):
         result = self.run_cli('init',self.case,'--company','示例科技','--department','搜索平台部','--city','上海','--role','后端研发','--as-of','2026-11-10')
         self.assertEqual(result.returncode,0,result.stderr)
 
+    def test_evaluate_empty_and_overwrite_protection(self):
+        source = self.path / 'pilot.json'
+        source.write_text(json.dumps({'schema_version': 1, 'cases': [], 'read_checks': []}))
+        out = self.path / 'evaluation'
+        result = self.run_cli('evaluate', '--file', source, '--out', out)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIsNone(json.loads((out/'evaluation.json').read_text())['metrics']['tool_case_coverage']['value'])
+        self.assertIn('尚未评测', (out/'evaluation.md').read_text())
+        before = (out/'evaluation.json').read_bytes()
+        self.assertEqual(self.run_cli('evaluate', '--file', source, '--out', out).returncode, 2)
+        self.assertEqual((out/'evaluation.json').read_bytes(), before)
+        source.write_text('{bad')
+        result = self.run_cli('evaluate', '--file', source, '--out', out)
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn('Traceback', result.stderr)
+
+    def test_legacy_evidence_survives_report_with_or_without_scan(self):
+        self.init()
+        source = self.path / 'legacy.json'
+        source.write_text(json.dumps([record(dimension='growth')], ensure_ascii=False))
+        self.assertEqual(self.run_cli('import', self.case, '--file', source).returncode, 0)
+        before = (self.case/'evidence.json').read_bytes()
+        self.assertEqual(self.run_cli('report', self.case, '--out', self.path/'before').returncode, 0)
+        scan = self.case/'scans'/'fixture'
+        scan.mkdir(parents=True)
+        (scan/'run.json').write_text(json.dumps({'channels': [], 'leads': []}))
+        self.assertEqual(self.run_cli('report', self.case, '--out', self.path/'after').returncode, 0)
+        for path in (self.path/'before', self.path/'after'):
+            data = json.loads((path/'report.json').read_text())
+            self.assertEqual(set(data['dimensions']), {'workload', 'atmosphere'})
+            self.assertEqual(data['summary']['total_count'], 1)
+            self.assertIn('非本轮关注维度', data['background'][0]['reasons'])
+        self.assertEqual((self.case/'evidence.json').read_bytes(), before)
+
     def test_complete_workflow_outputs_cited_report_and_search_plan(self):
         self.init()
         self.assertEqual(self.run_cli('plan',self.case).returncode,0)
