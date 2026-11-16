@@ -10,11 +10,23 @@ class AnalysisTests(unittest.TestCase):
         case = validate_case({**target(), **changes})
         return analyze(case, [validate_evidence(row) for row in rows])
 
-    def test_empty_case_reports_unknown_in_all_six_dimensions(self):
+    def test_empty_case_reports_unknown_in_two_dimensions(self):
         report = self.assess()
-        self.assertEqual(len(report['dimensions']), 6)
+        self.assertEqual(set(report['dimensions']), {'workload', 'atmosphere'})
         self.assertTrue(all(d['status'] == 'unknown' for d in report['dimensions'].values()))
         self.assertEqual(report['summary']['eligible_count'], 0)
+
+    def test_legacy_dimension_is_preserved_as_background(self):
+        report = self.assess(record(dimension='growth'))
+        self.assertEqual(report['summary']['total_count'], 1)
+        self.assertEqual(report['summary']['eligible_count'], 0)
+        self.assertEqual(report['summary']['unknown_dimensions'], 2)
+        self.assertIn('非本轮关注维度', report['background'][0]['reasons'])
+
+    def test_plan_only_covers_workplace_focus(self):
+        plan = build_plan(validate_case(target()))
+        self.assertNotIn('薪酬兑现', plan)
+        self.assertNotIn('成长空间', plan)
 
     def test_wrong_department_city_and_role_are_only_background(self):
         for key, value in [('department', '销售部'), ('city', '北京'), ('role', '销售'), ('company','同名但不同公司')]:

@@ -53,7 +53,7 @@ class CliTests(unittest.TestCase):
         self.assertNotEqual(result.returncode,0)
         self.assertEqual((out/'report.html').read_bytes(),before)
         data = json.loads((out/'report.json').read_text())
-        self.assertEqual(data['summary']['unknown_dimensions'],6)
+        self.assertEqual(data['summary']['unknown_dimensions'],2)
         self.assertEqual(self.run_cli('report',self.case,'--out',out,'--force').returncode,0)
 
     def test_invalid_json_returns_actionable_error_without_traceback(self):
@@ -131,7 +131,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(data['collection']['statuses'],{'manual_required':1})
         self.assertEqual(data['collection']['fetch_attempts'],0)
         self.assertEqual(data['summary']['eligible_count'],0)
-        self.assertEqual(data['summary']['unknown_dimensions'],6)
+        self.assertEqual(data['summary']['unknown_dimensions'],2)
         self.assertIn('采集记录',(out/'report.html').read_text())
         self.assertIn('需要宿主或用户读取',(out/'report.md').read_text())
 

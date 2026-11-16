@@ -147,14 +147,9 @@ def write_report(case_dir, out, force=False):
     case = read_case(case_dir)
     rows = read_evidence(case_dir)
     scans=scan_summary(case_dir)
-    if scans:
-        rows=[r for r in rows if r['dimension'] in {'workload','atmosphere'}]
     data = analyze(case, rows)
     data['collection']=collection_summary(case_dir)
     data['scans']=scans
-    if data['scans']:
-        data['dimensions']={key:value for key,value in data['dimensions'].items() if key in {'workload','atmosphere'}}
-        data['summary']['unknown_dimensions']=sum(v['status']=='unknown' for v in data['dimensions'].values())
     out = Path(out)
     files = [out / ('report.'+ext) for ext in ('html','md','json')]
     if not force and any(p.exists() for p in files):

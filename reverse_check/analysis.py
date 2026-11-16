@@ -4,7 +4,7 @@ from datetime import date
 import re
 import unicodedata
 
-from .casebook import DIMENSIONS
+from .casebook import DIMENSIONS, FOCUS_DIMENSIONS
 from .sources import canonical_url, load_sources, source_queries
 
 
@@ -30,6 +30,8 @@ def _canonical_ref(ref):
 
 def _reasons(case, row):
     reasons = []
+    if row['dimension'] not in FOCUS_DIMENSIONS:
+        reasons.append('非本轮关注维度')
     company_names = [case['company'], *case['company_aliases']]
     if _norm(row['scope']['company']) not in {_norm(n) for n in company_names}:
         reasons.append('公司主体不匹配')
@@ -89,7 +91,8 @@ def analyze(case, records):
         else:
             eligible.append(item)
     dimensions = {}
-    for key,label in DIMENSIONS.items():
+    for key in FOCUS_DIMENSIONS:
+        label = DIMENSIONS[key]
         rows = [r for r in eligible if r['dimension'] == key]
         directions = {r['direction'] for r in rows}
         count = len({r['source_cluster'] for r in rows})
@@ -130,7 +133,7 @@ def build_plan(case,registry=None,selected=None):
              '', '## 待查对象', '', f'范围：{scope}；岗位：{case["role"] or "尚未明确"}。',
              '先核对公司主体、部门别称、业务线、岗位和办公地点；别名需要证据后显式登记。',
              '', '## 检索与面试问题', '']
-    for key,terms in [('workload','加班 值班 周末'),('atmosphere','氛围 协作 复盘'),('management','管理 需求 优先级'),('stability','调整 招聘 离职'),('compensation','奖金 绩效 兑现'),('growth','导师 晋升 培养')]:
+    for key,terms in [('workload','加班 值班 周末'),('atmosphere','氛围 协作 复盘')]:
         lines.extend([f'### {DIMENSIONS[key]}', '', f'- 员工线索：`{scope} {terms}`',
                       f'- 背景核对：`"{case["company"]}" "{case["department"] or "部门"}" 招聘 业务`',
                       '- 命中后读取原文，登记观察日期、明确所属范围与转载关系；摘要只作线索。',

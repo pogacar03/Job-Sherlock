@@ -9,7 +9,7 @@ python3 -m reverse_check scan cases/target --limit 5 --timeout 20
 python3 -m reverse_check report cases/target
 ```
 
-有扫描记录的报告只展示工作强度和团队氛围两个维度。旧案例没有扫描记录时仍使用原有六维报告。扫描不会自动导入证据；正文、体验日期、摘录和部门归属需要审阅。
+所有报告聚焦工作强度和团队氛围；旧案例的其他维度材料保留在背景区。扫描不会自动导入证据；正文、体验日期、摘录和部门归属需要审阅。
 
 ## 三个核心来源
 

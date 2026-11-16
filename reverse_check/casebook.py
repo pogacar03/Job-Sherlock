@@ -14,6 +14,7 @@ DIMENSIONS = {
     'workload': '工作强度', 'atmosphere': '团队氛围', 'management': '管理沟通',
     'stability': '岗位稳定性', 'compensation': '薪酬兑现', 'growth': '成长空间',
 }
+FOCUS_DIMENSIONS = ('workload', 'atmosphere')
 SCOPE_FIELDS = ('company', 'business_unit', 'department', 'city', 'role')
 SOURCE_TYPES = {'employee_account', 'user_interview', 'official', 'secondary'}
 ACCESS_TYPES = {'full_text', 'user_provided', 'snippet'}
