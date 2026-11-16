@@ -16,6 +16,7 @@ from .http_source import public_fetch, FetchError, FetchedPage, parse_url
 from .sources import load_sources
 from .browser_forums import xhs_search, maimai_search
 from .forum_content import read_forum_thread, thread_key, candidate_id_for
+from .queries import build_forum_queries, match_hint
 
 DEFAULT_CHANNELS = ('xiaohongshu','nowcoder','maimai')
 
@@ -90,7 +91,7 @@ def _allowed(channel,url):
     return any(host==d or host.endswith('.'+d) for d in DOMAINS[channel])
 
 
-def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids=None,fetch=None,executable=_AUTO,tool=None, *, source_urls=None):
+def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids=None,fetch=None,executable=_AUTO,tool=None, *, source_urls=None, search_terms=None):
     case=read_case(case_dir)
     channels=list(dict.fromkeys(channels or DEFAULT_CHANNELS))
     if any(c not in CHANNELS for c in channels):raise ValueError('未知论坛渠道')
@@ -116,11 +117,9 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
     executable=shutil.which('opencli') if executable is _AUTO else executable
     fetch=fetch or public_fetch;tool=tool or _tool
     terms=[case['company'],*case['company_aliases']]
-    department=case.get('department') or ''
-    acronyms=re.findall(r'\b[A-Z]{2,8}\b',department)
-    team=' '.join(acronyms) if acronyms else department
-    seed=' '.join(f'{case["company"]} {team}'.split())
-    queries=queries or [seed,seed+' 加班',seed+' 氛围']
+    if queries is not None and search_terms is not None: raise ValueError('query 与 search-term 不能同时使用')
+    generated_queries=build_forum_queries(case,search_terms)
+    queries=queries if queries is not None else generated_queries
     root=Path(case_dir)/'scans'/(datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')+'-'+uuid.uuid4().hex[:8])
     (root/'raw').mkdir(parents=True)
     documents=[];leads=[];results=[];candidates=[];counter=0
@@ -200,6 +199,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
                                 record['segments'][0]['time_raw']=record['published_at_raw']
                                 record['candidate_id']=candidate_id_for(record['thread_key'],record['title'],record['segments'])
                                 row['errors'].extend(record['errors'])
+                                record['match_hint']=match_hint(case,record,search_terms)
                                 candidates.append(record)
                             else:
                                 details=tool([executable,channel,'answer-detail',url,'-f','json'],timeout);save(details)
@@ -229,7 +229,7 @@ def scan_forums(case_dir,channels=None,queries=None,limit=5,timeout=20,topic_ids
         registry={'schema_version':1,'sources':[{**s,'mode':'public'} for s in registry['sources']]}
         def cached(url,**kwargs):return FetchedPage(url,200,'text/plain; charset=utf-8',cache[url]['text'].encode())
         collection=collect_sources(case_dir,list(cache),registry=registry,fetch=cached)
-    _write_json(root/'run.json',{'schema_version':2,'focus':['workload','atmosphere'],'channels':results,'documents':documents,'leads':leads,'candidates':candidates,'collection':str(collection.relative_to(case_dir)) if collection else None,'note':'全部材料待审阅；公司命中不代表部门归属；失败或未配置不代表没有问题'})
+    _write_json(root/'run.json',{'schema_version':2,'focus':['workload','atmosphere'],'channels':results,'documents':documents,'leads':leads,'candidates':candidates,'options':{'queries':queries,'search_terms':search_terms or []},'collection':str(collection.relative_to(case_dir)) if collection else None,'note':'全部材料待审阅；公司命中不代表部门归属；失败或未配置不代表没有问题'})
     return root
 
 
