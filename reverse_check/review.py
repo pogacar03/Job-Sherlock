@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 import re
 
-from .casebook import FOCUS_DIMENSIONS, SCOPE_FIELDS, _write_json, import_evidence, validate_evidence
+from .casebook import FOCUS_DIMENSIONS, SCOPE_FIELDS, _write_json, import_evidence, validate_evidence, read_case
 from .forum_content import candidate_id_for, thread_key
 from .http_source import FetchError
+from .queries import platform_usage_hint
 
 PROPOSAL_FIELDS = {'id','scan_id','candidate_id','segment_id','quote','observation','kind','source_type','dimension','direction','scope','observed_at','published_at','basis'}
 
@@ -99,6 +100,7 @@ def approve_proposals(case_dir: Path, batch: dict, accepted_ids: list[str]) -> d
 
 def review_interactive(case_dir: Path, batch: dict, *, input_fn=input, output_fn=print) -> dict:
     proposals=_batch(batch)
+    case=read_case(case_dir)
     candidates={(c['scan_id'],c['candidate_id']):c for c in load_candidates(case_dir)}
     selected=[]
     for identifier,p in proposals.items():
@@ -106,6 +108,7 @@ def review_interactive(case_dir: Path, batch: dict, *, input_fn=input, output_fn
         output_fn('\n建议 '+identifier+'：'+_json(p))
         if c:
             output_fn('原文：'+_json([{'id':s['id'],'text':s['text'],'time_raw':s.get('time_raw')} for s in c['segments']]))
+            if platform_usage_hint(case,c): output_fn('提示：可能是在使用该平台，而非在该公司工作；需核对原文，不能据此认定雇主。')
         else: output_fn('无法找到对应原文快照')
         while True:
             choice=input_fn('[a]接收 / [s]跳过 / [q]结束：').strip().lower()

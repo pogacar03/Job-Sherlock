@@ -29,3 +29,13 @@ def match_hint(case: dict, candidate: dict, search_terms: list[str] | None = Non
     if department and department in text: return 'department_mention'
     if any(_norm(term) and _norm(term) in text for term in (search_terms or [])): return 'search_hint'
     return 'company_only'
+
+
+def platform_usage_hint(case: dict, candidate: dict) -> bool:
+    """Warn on explicit usage phrases; never infer or exclude employer scope."""
+    text = _norm(candidate.get('title', '') + ' ' + ' '.join(s.get('text', '') for s in candidate.get('segments', [])))
+    for name in [case.get('company'), *case.get('company_aliases', [])]:
+        name = _norm(name)
+        if name and re.search(r'(?:在|从|通过|使用|用)' + re.escape(name) + r'(?:上(?!班|岗)|平台|app)', text):
+            return True
+    return False
